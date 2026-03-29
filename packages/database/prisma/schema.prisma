@@ -210,7 +210,152 @@ enum RSVPStatus {
 }
 
 // ============================================
-// ACTIVITY RECOMMENDATIONS
+// LOCAL ACTIVITIES (aggregated from multiple APIs)
+// ============================================
+
+model Activity {
+  id          String           @id @default(cuid())
+  title       String
+  description String?
+  category    ActivityType     @default(ENTERTAINMENT)
+  latitude    Float
+  longitude   Float
+  address     String?
+  city        String
+  state       String
+  zipCode     String?
+  cost        CostLevel        @default(FREE)
+  isIndoor    Boolean          @default(false)
+  isOutdoor   Boolean          @default(true)
+  ageMin      Int?             // minimum recommended age
+  ageMax      Int?             // maximum recommended age
+  seasonality String[]         // spring, summer, fall, winter
+  tags        String[]
+  imageUrl    String?
+  rating      Float?
+  reviewCount Int?
+  isAffiliate Boolean          @default(false)
+  affiliateUrl String?
+  sourceUrl   String?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  // Relations
+  sources       ActivitySource[]
+  socialContent SocialContent[]
+
+  @@index([city, state])
+  @@index([category])
+  @@index([latitude, longitude])
+  @@map("activities")
+}
+
+model ActivitySource {
+  id          String   @id @default(cuid())
+  activityId  String
+  provider    String   // google_places, ridb, osm, eventbrite, yelp
+  externalId  String
+  rating      Float?
+  reviewCount Int?
+  priceLevel  Int?
+  rawData     Json?    // full API response for reference
+  fetchedAt   DateTime @default(now())
+
+  activity Activity @relation(fields: [activityId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, externalId])
+  @@map("activity_sources")
+}
+
+// ============================================
+// SOCIAL CONTENT (TikTok, YouTube, Instagram)
+// ============================================
+
+model SocialContent {
+  id          String       @id @default(cuid())
+  platform    SocialPlatform
+  externalId  String       // platform-specific video ID
+  url         String       // original URL
+  embedHtml   String?      // oEmbed HTML (for TikTok embeds)
+  title       String?
+  description String?
+  thumbnail   String?
+  authorName  String?
+  authorHandle String?
+  authorUrl   String?
+  viewCount   Int?
+  likeCount   Int?
+  city        String
+  state       String
+  activityId  String?
+  submittedBy String?      // userId who submitted the link
+  isVerified  Boolean      @default(false) // from verified creator partner
+  createdAt   DateTime     @default(now())
+  fetchedAt   DateTime     @default(now())
+
+  activity Activity? @relation(fields: [activityId], references: [id], onDelete: SetNull)
+
+  @@unique([platform, externalId])
+  @@index([city, state])
+  @@index([platform, createdAt])
+  @@map("social_content")
+}
+
+model CreatorPartner {
+  id              String   @id @default(cuid())
+  name            String
+  handle          String   // @username
+  platform        SocialPlatform
+  profileUrl      String?
+  followerCount   Int?
+  city            String
+  state           String
+  tier            CreatorTier @default(AFFILIATE)
+  commissionRate  Float       @default(0.15) // 15% default
+  isActive        Boolean     @default(true)
+  oauthToken      String?     // encrypted platform OAuth token
+  joinedAt        DateTime    @default(now())
+
+  @@unique([platform, handle])
+  @@map("creator_partners")
+}
+
+enum SocialPlatform {
+  TIKTOK
+  YOUTUBE
+  INSTAGRAM
+}
+
+enum CreatorTier {
+  AFFILIATE       // posts links, earns per install
+  CONTENT_PARTNER // videos shown in app feed
+  CITY_AMBASSADOR // exclusive per-city curator
+}
+
+enum ActivityType {
+  OUTDOOR
+  RESTAURANT
+  PARK
+  TRAIL
+  MUSEUM
+  EVENT
+  PLAYGROUND
+  SPORTS
+  ARTS
+  SHOPPING
+  ENTERTAINMENT
+  CAMPGROUND
+}
+
+enum CostLevel {
+  FREE
+  BUDGET    // under $25
+  MODERATE  // $25-$75
+  EXPENSIVE // $75+
+}
+
+// ============================================
+// LEGACY: Simple activity recommendations
 // ============================================
 
 model ActivityRecommendation {
@@ -219,13 +364,13 @@ model ActivityRecommendation {
   description String
   category    String
   imageUrl    String?
-  cost        String?  // free, $, $$, $$$
-  duration    String?  // approximate time
-  ageRange    String?  // suitable age range
+  cost        String?
+  duration    String?
+  ageRange    String?
   isIndoor    Boolean  @default(false)
   isOutdoor   Boolean  @default(false)
   tags        String[]
-  sourceUrl   String?  // affiliate link or info page
+  sourceUrl   String?
   isAffiliate Boolean  @default(false)
   affiliateUrl String?
   rating      Float?
