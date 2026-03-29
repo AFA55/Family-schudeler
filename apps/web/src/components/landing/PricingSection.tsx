@@ -20,44 +20,47 @@ const plans = [
     highlighted: false,
   },
   {
-    name: "Family",
-    price: "$7.99",
+    name: "Plus",
+    price: "$4.99",
     period: "/month",
     description: "Everything you need for quality family time.",
     features: [
       "Everything in Free",
+      "Ad-free experience",
       "Unlimited family members",
       "Smart activity recommendations",
-      "Local activity & restaurant search",
-      "Family chat & AI assistant",
-      "Push notifications",
-      "Recurring events",
-      "Budget-based filtering",
+      "Local search with reviews & filters",
+      "Trending activities from social media",
+      "Multi-family event coordination",
+      "Google/Apple calendar sync",
+      "Push notifications & reminders",
       "Choose your charity impact region",
     ],
     cta: "Start 14-Day Free Trial",
     variant: "primary" as const,
     highlighted: true,
     badge: "Most Popular",
+    annual: "$39.99/year (save 33%)",
   },
   {
-    name: "Family+",
-    price: "$14.99",
+    name: "Premium",
+    price: "$7.99",
     period: "/month",
-    description: "For families who want the ultimate experience.",
+    description: "AI-powered planning for the ultimate family experience.",
     features: [
-      "Everything in Family",
-      "Multi-family event coordination",
-      "AI restaurant reservation assistance",
-      "Curated activity packages & deals",
-      "In-app board game & craft shop",
+      "Everything in Plus",
+      "AI scheduling & smart suggestions",
+      "Curated activity deals & discounts",
+      "AI restaurant & reservation assistant",
+      "Family analytics dashboard",
+      "Connect up to 3 families",
+      "In-app activity & game shop",
       "Priority support",
-      "Advanced analytics & family insights",
-      "Custom event categories",
     ],
     cta: "Start 14-Day Free Trial",
     variant: "secondary" as const,
     highlighted: false,
+    annual: "$59.99/year (save 37%)",
   },
 ];
 
@@ -104,6 +107,9 @@ export default function PricingSection() {
                   <span className="text-neutral-400 text-sm">{plan.period}</span>
                 </div>
                 <p className="text-neutral-500 text-sm mt-2">{plan.description}</p>
+                {"annual" in plan && plan.annual && (
+                  <p className="text-xs text-primary-500 font-semibold mt-2">{plan.annual}</p>
+                )}
               </div>
 
               <ul className="space-y-3 mb-8">

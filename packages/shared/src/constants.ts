@@ -15,6 +15,13 @@ export const CHARITY_MESSAGE =
 // Trial
 export const TRIAL_DAYS = 14;
 
+// Pricing
+export const PRICING = {
+  FREE: { monthly: 0, annual: 0, name: "Free" },
+  PLUS: { monthly: 4.99, annual: 39.99, name: "Plus" },
+  PREMIUM: { monthly: 7.99, annual: 59.99, name: "Premium" },
+} as const;
+
 // Color Palette - Warm, family-friendly, modern
 export const COLORS = {
   // Primary - Warm Indigo
