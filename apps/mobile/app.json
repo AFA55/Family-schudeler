@@ -1,0 +1,35 @@
+{
+  "expo": {
+    "name": "FamilySync",
+    "slug": "familysync",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "scheme": "familysync",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "backgroundColor": "#6366F1",
+      "resizeMode": "contain"
+    },
+    "assetBundlePatterns": ["**/*"],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.familysync.app"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#6366F1"
+      },
+      "package": "com.familysync.app"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-notifications",
+      "expo-location",
+      "expo-secure-store"
+    ],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}

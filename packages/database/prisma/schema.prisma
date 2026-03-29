@@ -1,0 +1,371 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// USER & AUTHENTICATION
+// ============================================
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  name          String
+  phone         String?
+  avatarUrl     String?
+  passwordHash  String?
+  emailVerified DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Relations
+  familyMembers   FamilyMember[]
+  createdEvents   Event[]          @relation("EventCreator")
+  eventAttendees  EventAttendee[]
+  notifications   Notification[]
+  onboarding      UserOnboarding?
+  subscriptions   Subscription[]
+  chatMessages    ChatMessage[]
+  accounts        Account[]
+  sessions        Session[]
+
+  @@map("users")
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+// ============================================
+// ONBOARDING SURVEY
+// ============================================
+
+model UserOnboarding {
+  id                    String   @id @default(cuid())
+  userId                String   @unique
+  interests             String[] // hiking, cooking, movies, etc.
+  currentActivities     String[] // what they already do
+  goals                 String[] // more family time, organized, find activities
+  wantRecommendations   Boolean  @default(true)
+  activityTypes         String[] // at-home, outdoor, adventure, dining
+  maxTravelDistance      Int?     // miles willing to travel
+  address               String?
+  latitude              Float?
+  longitude             Float?
+  preferredBudget       String?  // free, budget, moderate, any
+  helpCountryPreference String[] // US, international, specific countries
+  completedAt           DateTime?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_onboarding")
+}
+
+// ============================================
+// FAMILY & MEMBERS
+// ============================================
+
+model Family {
+  id          String   @id @default(cuid())
+  name        String
+  color       String   @default("#6366F1") // family accent color
+  avatarUrl   String?
+  inviteCode  String   @unique @default(cuid())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  members     FamilyMember[]
+  events      Event[]
+  chatRooms   ChatRoom[]
+
+  @@map("families")
+}
+
+model FamilyMember {
+  id        String     @id @default(cuid())
+  familyId  String
+  userId    String
+  role      FamilyRole @default(MEMBER)
+  nickname  String?
+  joinedAt  DateTime   @default(now())
+
+  family Family @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([familyId, userId])
+  @@map("family_members")
+}
+
+enum FamilyRole {
+  ADMIN
+  MEMBER
+  CHILD
+  GUEST // for shared access without account
+}
+
+// ============================================
+// CALENDAR & EVENTS
+// ============================================
+
+model Event {
+  id              String        @id @default(cuid())
+  familyId        String
+  creatorId       String
+  title           String
+  description     String?
+  location        String?
+  locationPlaceId String?       // Google Places ID
+  startTime       DateTime
+  endTime         DateTime
+  allDay          Boolean       @default(false)
+  recurring       String?       // RRULE string for recurring events
+  category        EventCategory @default(GENERAL)
+  color           String?
+  cost            String?       // estimated cost
+  externalUrl     String?       // link to activity/restaurant
+  reminderMinutes Int           @default(30)
+  isPublic        Boolean       @default(false) // shareable without account
+  shareToken      String?       @unique
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  // Relations
+  family    Family          @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  creator   User            @relation("EventCreator", fields: [creatorId], references: [id])
+  attendees EventAttendee[]
+
+  @@index([familyId, startTime])
+  @@index([shareToken])
+  @@map("events")
+}
+
+model EventAttendee {
+  id       String     @id @default(cuid())
+  eventId  String
+  userId   String
+  status   RSVPStatus @default(PENDING)
+  notified Boolean    @default(false)
+
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, userId])
+  @@map("event_attendees")
+}
+
+enum EventCategory {
+  GENERAL
+  FAMILY_TIME
+  OUTDOOR
+  DINING
+  MOVIE_NIGHT
+  GAME_NIGHT
+  ADVENTURE
+  SPORTS
+  CRAFTS
+  HOLIDAY
+  BIRTHDAY
+  TRAVEL
+  APPOINTMENT
+}
+
+enum RSVPStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+  MAYBE
+}
+
+// ============================================
+// ACTIVITY RECOMMENDATIONS
+// ============================================
+
+model ActivityRecommendation {
+  id          String   @id @default(cuid())
+  title       String
+  description String
+  category    String
+  imageUrl    String?
+  cost        String?  // free, $, $$, $$$
+  duration    String?  // approximate time
+  ageRange    String?  // suitable age range
+  isIndoor    Boolean  @default(false)
+  isOutdoor   Boolean  @default(false)
+  tags        String[]
+  sourceUrl   String?  // affiliate link or info page
+  isAffiliate Boolean  @default(false)
+  affiliateUrl String?
+  rating      Float?
+  reviewCount Int?
+  createdAt   DateTime @default(now())
+
+  @@map("activity_recommendations")
+}
+
+// ============================================
+// CHAT / MESSAGING
+// ============================================
+
+model ChatRoom {
+  id        String   @id @default(cuid())
+  familyId  String
+  name      String?
+  eventId   String?  // optional: chat linked to an event
+  createdAt DateTime @default(now())
+
+  family   Family        @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  messages ChatMessage[]
+
+  @@map("chat_rooms")
+}
+
+model ChatMessage {
+  id         String   @id @default(cuid())
+  chatRoomId String
+  senderId   String
+  content    String
+  isAI       Boolean  @default(false) // AI assistant messages
+  metadata   Json?    // for AI recommendations, place data, etc.
+  createdAt  DateTime @default(now())
+
+  chatRoom ChatRoom @relation(fields: [chatRoomId], references: [id], onDelete: Cascade)
+  sender   User     @relation(fields: [senderId], references: [id])
+
+  @@index([chatRoomId, createdAt])
+  @@map("chat_messages")
+}
+
+// ============================================
+// NOTIFICATIONS
+// ============================================
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  type      NotificationType
+  title     String
+  body      String
+  data      Json?
+  read      Boolean          @default(false)
+  createdAt DateTime         @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, read])
+  @@map("notifications")
+}
+
+enum NotificationType {
+  EVENT_INVITE
+  EVENT_REMINDER
+  EVENT_UPDATE
+  FAMILY_INVITE
+  RECOMMENDATION
+  CHAT_MESSAGE
+  SYSTEM
+}
+
+// ============================================
+// SUBSCRIPTIONS & PAYMENTS
+// ============================================
+
+model Subscription {
+  id                   String             @id @default(cuid())
+  userId               String
+  stripeCustomerId     String?
+  stripeSubscriptionId String?            @unique
+  plan                 SubscriptionPlan   @default(FREE)
+  status               SubscriptionStatus @default(TRIALING)
+  trialEndsAt          DateTime?
+  currentPeriodStart   DateTime?
+  currentPeriodEnd     DateTime?
+  cancelAtPeriodEnd    Boolean            @default(false)
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("subscriptions")
+}
+
+enum SubscriptionPlan {
+  FREE
+  FAMILY     // single family
+  FAMILY_PLUS // multi-family + AI features
+}
+
+enum SubscriptionStatus {
+  TRIALING
+  ACTIVE
+  PAST_DUE
+  CANCELED
+  INCOMPLETE
+}
+
+// ============================================
+// CHARITY / IMPACT TRACKING
+// ============================================
+
+model CharityContribution {
+  id              String   @id @default(cuid())
+  amount          Float    // amount contributed
+  currency        String   @default("USD")
+  organizationId  String
+  country         String   // country being helped
+  period          String   // e.g., "2026-03"
+  stripePaymentId String?
+  createdAt       DateTime @default(now())
+
+  organization CharityOrganization @relation(fields: [organizationId], references: [id])
+
+  @@map("charity_contributions")
+}
+
+model CharityOrganization {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  website     String?
+  logoUrl     String?
+  countries   String[] // countries they operate in
+  focus       String[] // family support, education, etc.
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  contributions CharityContribution[]
+
+  @@map("charity_organizations")
+}

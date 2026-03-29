@@ -1,0 +1,25 @@
+{
+  "name": "familysync",
+  "version": "0.1.0",
+  "private": true,
+  "description": "FamilySync - Smart family scheduling & quality time planner",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:web": "npm run dev --workspace=apps/web",
+    "dev:mobile": "npm run start --workspace=apps/mobile",
+    "dev:api": "npm run dev --workspace=apps/web",
+    "build:web": "npm run build --workspace=apps/web",
+    "db:generate": "npm run generate --workspace=packages/database",
+    "db:push": "npm run push --workspace=packages/database",
+    "db:migrate": "npm run migrate --workspace=packages/database",
+    "db:studio": "npm run studio --workspace=packages/database",
+    "lint": "eslint .",
+    "clean": "rm -rf node_modules apps/*/node_modules packages/*/node_modules"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
