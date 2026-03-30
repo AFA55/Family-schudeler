@@ -1,8 +1,6 @@
-// NextAuth API route placeholder
-// TODO: Configure NextAuth with:
-// - Email/password credentials provider
-// - Magic link email provider (for family invites)
-// - Prisma adapter for Neon database
-// - JWT session strategy for mobile API compatibility
+import NextAuth from "next-auth";
+import { authOptions } from "@/lib/auth";
 
-export { GET, POST } from "./auth-config";
+const handler = NextAuth(authOptions);
+
+export { handler as GET, handler as POST };
