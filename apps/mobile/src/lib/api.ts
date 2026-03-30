@@ -1,6 +1,8 @@
 import axios from "axios";
+import { useAuthStore } from "../store/authStore";
 
-const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || "http://localhost:3000/api";
+const API_BASE_URL =
+  process.env.EXPO_PUBLIC_API_URL || "http://localhost:3000/api";
 
 export const api = axios.create({
   baseURL: API_BASE_URL,
@@ -9,51 +11,104 @@ export const api = axios.create({
   },
 });
 
-// Auth interceptor
+// Auth token interceptor - reads token from auth store
 api.interceptors.request.use((config) => {
-  // Token will be added from secure store
+  const token = useAuthStore.getState().token;
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
   return config;
 });
 
-// API methods
+// ---- Auth ----
 export const authAPI = {
   signUp: (data: { email: string; name: string; password: string }) =>
     api.post("/auth/signup", data),
   signIn: (data: { email: string; password: string }) =>
-    api.post("/auth/signin", data),
+    api.post("/auth/callback/credentials", data),
 };
 
+// ---- Families ----
 export const familyAPI = {
-  list: () => api.get("/families"),
-  create: (data: { name: string; color: string }) =>
+  list: (userId: string) => api.get(`/families?userId=${userId}`),
+  create: (data: { name: string; color: string; userId: string }) =>
     api.post("/families", data),
-  addMember: (familyId: string, data: { email: string; name: string; role: string }) =>
-    api.post(`/families/${familyId}/members`, data),
-  join: (inviteCode: string) =>
-    api.post(`/families/join/${inviteCode}`),
+  get: (familyId: string) => api.get(`/families/${familyId}`),
+  addMember: (
+    familyId: string,
+    data: { email: string; name: string; role: string }
+  ) => api.post(`/families/${familyId}/members`, data),
+  join: (inviteCode: string, userId: string) =>
+    api.post(`/families/join/${inviteCode}`, { userId }),
 };
 
+// ---- Events ----
 export const eventAPI = {
   list: (familyId: string, startDate: string, endDate: string) =>
-    api.get(`/events?familyId=${familyId}&start=${startDate}&end=${endDate}`),
-  create: (data: Record<string, unknown>) =>
-    api.post("/events", data),
+    api.get(
+      `/events?familyId=${familyId}&start=${startDate}&end=${endDate}`
+    ),
+  create: (data: {
+    familyId: string;
+    creatorId: string;
+    title: string;
+    startTime: string;
+    endTime: string;
+    category: string;
+    attendeeIds?: string[];
+    description?: string;
+    location?: string;
+    allDay?: boolean;
+    cost?: string;
+  }) => api.post("/events", data),
   update: (eventId: string, data: Record<string, unknown>) =>
     api.put(`/events/${eventId}`, data),
-  delete: (eventId: string) =>
-    api.delete(`/events/${eventId}`),
-  rsvp: (eventId: string, status: string) =>
-    api.post(`/events/${eventId}/rsvp`, { status }),
+  delete: (eventId: string) => api.delete(`/events/${eventId}`),
+  rsvp: (eventId: string, data: { userId: string; status: string }) =>
+    api.post(`/events/${eventId}/rsvp`, data),
 };
 
+// ---- Onboarding ----
 export const onboardingAPI = {
-  submit: (data: Record<string, unknown>) =>
-    api.post("/onboarding", data),
+  submit: (data: {
+    userId: string;
+    interests: string[];
+    goals: string[];
+    activityTypes: string[];
+    [key: string]: unknown;
+  }) => api.post("/onboarding", data),
+  get: (userId: string) => api.get(`/onboarding?userId=${userId}`),
 };
 
-export const recommendationAPI = {
-  getActivities: (params: Record<string, unknown>) =>
-    api.get("/recommendations/activities", { params }),
-  getNearby: (lat: number, lng: number, category: string) =>
-    api.get(`/recommendations/nearby?lat=${lat}&lng=${lng}&category=${category}`),
+// ---- Notifications ----
+export const notificationAPI = {
+  list: (userId: string, unreadOnly = true) =>
+    api.get(
+      `/notifications?userId=${userId}&unreadOnly=${unreadOnly}`
+    ),
+  markRead: (notificationId: string) =>
+    api.put(`/notifications/${notificationId}/read`),
+  markAllRead: (userId: string) =>
+    api.put(`/notifications/mark-all-read?userId=${userId}`),
+};
+
+// ---- Discover ----
+export const discoverAPI = {
+  feed: (params: {
+    city?: string;
+    state?: string;
+    lat?: number;
+    lng?: number;
+    category?: string;
+  }) => api.get("/discover", { params }),
+  submit: (data: { url: string; city: string; state: string }) =>
+    api.post("/discover", data),
+};
+
+// ---- Subscription ----
+export const subscriptionAPI = {
+  status: (userId: string) =>
+    api.get(`/stripe/subscription?userId=${userId}`),
+  checkout: (data: { userId: string; plan: string; interval: string }) =>
+    api.post("/stripe/checkout", data),
 };
