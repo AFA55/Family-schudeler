@@ -14,13 +14,29 @@
     "assetBundlePatterns": ["**/*"],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.familysync.app"
+      "bundleIdentifier": "com.familysync.app",
+      "infoPlist": {
+        "NSCalendarsUsageDescription": "FamilySync needs access to your calendar to sync family events.",
+        "NSLocationWhenInUseUsageDescription": "FamilySync uses your location to suggest nearby family activities.",
+        "NSCameraUsageDescription": "FamilySync needs camera access to add photos to events.",
+        "NSPhotoLibraryUsageDescription": "FamilySync needs photo library access to add images to events."
+      }
     },
     "android": {
       "adaptiveIcon": {
         "backgroundColor": "#6366F1"
       },
-      "package": "com.familysync.app"
+      "package": "com.familysync.app",
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "CAMERA",
+        "READ_CALENDAR",
+        "WRITE_CALENDAR",
+        "READ_EXTERNAL_STORAGE",
+        "RECEIVE_BOOT_COMPLETED",
+        "VIBRATE"
+      ]
     },
     "plugins": [
       "expo-router",
@@ -30,6 +46,12 @@
     ],
     "experiments": {
       "typedRoutes": true
-    }
+    },
+    "extra": {
+      "eas": {
+        "projectId": "EAS_PROJECT_ID_PLACEHOLDER"
+      }
+    },
+    "owner": "familysync"
   }
 }
