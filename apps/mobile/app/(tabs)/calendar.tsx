@@ -7,6 +7,7 @@ import {
   StyleSheet,
   ActivityIndicator,
 } from "react-native";
+import { useRouter } from "expo-router";
 import { colors, familyColors } from "../../src/theme/colors";
 import { useFamilyStore } from "../../src/store/familyStore";
 import { useAuthStore } from "../../src/store/authStore";
@@ -35,6 +36,7 @@ function formatTime(isoString: string): string {
 }
 
 export default function CalendarScreen() {
+  const router = useRouter();
   const now = new Date();
   const [currentMonth, setCurrentMonth] = useState(now.getMonth());
   const [currentYear, setCurrentYear] = useState(now.getFullYear());
@@ -140,7 +142,10 @@ export default function CalendarScreen() {
           <Text style={styles.greeting}>Good morning!</Text>
           <Text style={styles.headerTitle}>{monthLabel}</Text>
         </View>
-        <TouchableOpacity style={styles.addButton}>
+        <TouchableOpacity
+          style={styles.addButton}
+          onPress={() => router.push("/event/create")}
+        >
           <Text style={styles.addButtonText}>+ Add Event</Text>
         </TouchableOpacity>
       </View>
@@ -243,7 +248,11 @@ export default function CalendarScreen() {
 
           {selectedEvents.length > 0 ? (
             selectedEvents.map((event) => (
-              <TouchableOpacity key={event.id} style={styles.eventCard}>
+              <TouchableOpacity
+                key={event.id}
+                style={styles.eventCard}
+                onPress={() => router.push(`/event/${event.id}`)}
+              >
                 <View
                   style={[styles.eventAccent, { backgroundColor: event.color }]}
                 />
@@ -264,7 +273,10 @@ export default function CalendarScreen() {
             <View style={styles.noEvents}>
               <Text style={styles.noEventsEmoji}>📅</Text>
               <Text style={styles.noEventsText}>No events scheduled</Text>
-              <TouchableOpacity style={styles.noEventsButton}>
+              <TouchableOpacity
+                style={styles.noEventsButton}
+                onPress={() => router.push("/event/create")}
+              >
                 <Text style={styles.noEventsButtonText}>
                   Plan something fun
                 </Text>

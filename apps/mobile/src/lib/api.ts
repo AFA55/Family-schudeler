@@ -48,6 +48,7 @@ export const eventAPI = {
     api.get(
       `/events?familyId=${familyId}&start=${startDate}&end=${endDate}`
     ),
+  get: (eventId: string) => api.get(`/events/${eventId}`),
   create: (data: {
     familyId: string;
     creatorId: string;

@@ -1,23 +1,127 @@
+import { useEffect, useState } from "react";
 import {
   View,
   Text,
   TouchableOpacity,
   ScrollView,
   StyleSheet,
+  ActivityIndicator,
+  Alert,
 } from "react-native";
 import { colors, familyColors } from "../../src/theme/colors";
+import { useFamilyStore } from "../../src/store/familyStore";
+import { useAuthStore } from "../../src/store/authStore";
+import { familyAPI } from "../../src/lib/api";
 
-const mockFamily = {
-  name: "The Johnsons",
-  members: [
-    { id: "1", name: "Marcus", role: "Admin", email: "marcus@email.com", color: familyColors[0] },
-    { id: "2", name: "Sarah", role: "Admin", email: "sarah@email.com", color: familyColors[3] },
-    { id: "3", name: "Emma", role: "Member", email: "emma@email.com", color: familyColors[1] },
-    { id: "4", name: "Jake", role: "Child", email: null, color: familyColors[2] },
-  ],
-};
+interface FamilyMember {
+  id: string;
+  name: string;
+  role: string;
+  email: string | null;
+}
 
 export default function FamilyScreen() {
+  const { activeFamily, isLoading, fetchFamilies } = useFamilyStore();
+  const { user } = useAuthStore();
+  const [members, setMembers] = useState<FamilyMember[]>([]);
+  const [membersLoading, setMembersLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Fetch families on mount if needed
+  useEffect(() => {
+    const load = async () => {
+      if (!activeFamily && user?.id) {
+        setError(null);
+        try {
+          await fetchFamilies(user.id);
+        } catch {
+          setError("Failed to load family.");
+        }
+      }
+    };
+    load();
+  }, [user?.id]);
+
+  // Fetch family members when activeFamily changes
+  useEffect(() => {
+    const loadMembers = async () => {
+      if (!activeFamily?.id) return;
+      setMembersLoading(true);
+      try {
+        const response = await familyAPI.get(activeFamily.id);
+        const data = response.data;
+        setMembers(data.members ?? data.family?.members ?? []);
+      } catch {
+        // Members endpoint may not be available yet; show empty state
+        setMembers([]);
+      } finally {
+        setMembersLoading(false);
+      }
+    };
+    loadMembers();
+  }, [activeFamily?.id]);
+
+  if (isLoading && !activeFamily) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>Family</Text>
+        </View>
+        <View style={styles.centered}>
+          <ActivityIndicator size="large" color={colors.primary[500]} />
+        </View>
+      </View>
+    );
+  }
+
+  if (error) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>Family</Text>
+        </View>
+        <View style={styles.centered}>
+          <Text style={styles.errorText}>{error}</Text>
+          <TouchableOpacity
+            style={styles.retryButton}
+            onPress={() => {
+              if (user?.id) {
+                setError(null);
+                fetchFamilies(user.id).catch(() =>
+                  setError("Failed to load family.")
+                );
+              }
+            }}
+          >
+            <Text style={styles.retryText}>Retry</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
+
+  if (!activeFamily) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>Family</Text>
+        </View>
+        <View style={styles.centered}>
+          <Text style={styles.emptyEmoji}>👨‍👩‍👧‍👦</Text>
+          <Text style={styles.emptyText}>
+            No family yet. Create or join one to get started!
+          </Text>
+        </View>
+      </View>
+    );
+  }
+
+  const handleCopyInviteCode = () => {
+    if (activeFamily.inviteCode) {
+      Alert.alert("Invite Code", activeFamily.inviteCode);
+    }
+  };
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
@@ -32,9 +136,9 @@ export default function FamilyScreen() {
               <Text style={styles.familyAvatarText}>🏠</Text>
             </View>
             <View style={styles.familyInfo}>
-              <Text style={styles.familyName}>{mockFamily.name}</Text>
+              <Text style={styles.familyName}>{activeFamily.name}</Text>
               <Text style={styles.familyCount}>
-                {mockFamily.members.length} members
+                {activeFamily.memberCount} member{activeFamily.memberCount !== 1 ? "s" : ""}
               </Text>
             </View>
             <TouchableOpacity style={styles.settingsButton}>
@@ -46,8 +150,8 @@ export default function FamilyScreen() {
           <View style={styles.inviteCode}>
             <Text style={styles.inviteLabel}>Invite Code</Text>
             <View style={styles.inviteCodeBox}>
-              <Text style={styles.inviteCodeText}>JOHN-2026-FAM</Text>
-              <TouchableOpacity style={styles.copyButton}>
+              <Text style={styles.inviteCodeText}>{activeFamily.inviteCode}</Text>
+              <TouchableOpacity style={styles.copyButton} onPress={handleCopyInviteCode}>
                 <Text style={styles.copyText}>Copy</Text>
               </TouchableOpacity>
             </View>
@@ -56,28 +160,38 @@ export default function FamilyScreen() {
 
         {/* Members */}
         <Text style={styles.sectionTitle}>Members</Text>
-        {mockFamily.members.map((member) => (
-          <View key={member.id} style={styles.memberCard}>
-            <View style={[styles.memberAvatar, { backgroundColor: member.color }]}>
-              <Text style={styles.memberInitial}>
-                {member.name[0]}
-              </Text>
-            </View>
-            <View style={styles.memberInfo}>
-              <Text style={styles.memberName}>{member.name}</Text>
-              <Text style={styles.memberEmail}>
-                {member.email || "No email"}
-              </Text>
-            </View>
-            <View style={[styles.roleBadge, member.role === "Admin" && styles.adminBadge]}>
-              <Text
-                style={[styles.roleText, member.role === "Admin" && styles.adminText]}
-              >
-                {member.role}
-              </Text>
-            </View>
+        {membersLoading ? (
+          <View style={styles.loadingRow}>
+            <ActivityIndicator size="small" color={colors.primary[500]} />
           </View>
-        ))}
+        ) : members.length > 0 ? (
+          members.map((member, index) => (
+            <View key={member.id} style={styles.memberCard}>
+              <View style={[styles.memberAvatar, { backgroundColor: familyColors[index % familyColors.length] }]}>
+                <Text style={styles.memberInitial}>
+                  {member.name[0]}
+                </Text>
+              </View>
+              <View style={styles.memberInfo}>
+                <Text style={styles.memberName}>{member.name}</Text>
+                <Text style={styles.memberEmail}>
+                  {member.email || "No email"}
+                </Text>
+              </View>
+              <View style={[styles.roleBadge, member.role === "Admin" && styles.adminBadge]}>
+                <Text
+                  style={[styles.roleText, member.role === "Admin" && styles.adminText]}
+                >
+                  {member.role}
+                </Text>
+              </View>
+            </View>
+          ))
+        ) : (
+          <Text style={styles.emptyMembersText}>
+            Member details will appear here once the family is set up.
+          </Text>
+        )}
 
         {/* Add member button */}
         <TouchableOpacity style={styles.addMemberButton}>
@@ -310,5 +424,48 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "700",
     color: colors.primary[600],
+  },
+  centered: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 32,
+  },
+  errorText: {
+    fontSize: 15,
+    color: colors.coral[500],
+    textAlign: "center",
+    marginBottom: 12,
+  },
+  retryButton: {
+    backgroundColor: colors.primary[50],
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 12,
+  },
+  retryText: {
+    color: colors.primary[600],
+    fontWeight: "600",
+    fontSize: 14,
+  },
+  emptyEmoji: {
+    fontSize: 48,
+    marginBottom: 12,
+  },
+  emptyText: {
+    fontSize: 15,
+    color: colors.neutral[400],
+    textAlign: "center",
+    lineHeight: 22,
+  },
+  emptyMembersText: {
+    fontSize: 14,
+    color: colors.neutral[400],
+    textAlign: "center",
+    paddingVertical: 20,
+  },
+  loadingRow: {
+    paddingVertical: 20,
+    alignItems: "center",
   },
 });
