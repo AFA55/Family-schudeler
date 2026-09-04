@@ -249,55 +249,45 @@ describe('auth request interceptor', () => {
 // Retry interceptor
 // ============================================================
 describe('retry interceptor', () => {
-  beforeEach(() => {
-    jest.useFakeTimers();
-  });
+  it(
+    'retries on 5xx errors up to MAX_RETRIES times',
+    async () => {
+      // Restore spies so the real interceptor runs.
+      getSpy.mockRestore();
 
-  afterEach(() => {
-    jest.useRealTimers();
-  });
+      // Track how many times the adapter is called.
+      let callCount = 0;
 
-  it('retries on 5xx errors up to MAX_RETRIES times', async () => {
-    // Restore spies so the real interceptor runs.
-    getSpy.mockRestore();
+      // Create a proper AxiosError-like rejection each time.
+      api.defaults.adapter = jest.fn().mockImplementation((config) => {
+        callCount++;
+        const err = new Error('Internal Server Error');
+        (err as Record<string, unknown>).response = { status: 500 };
+        (err as Record<string, unknown>).config = { ...config, _retryCount: config._retryCount };
+        (err as Record<string, unknown>).isAxiosError = true;
+        return Promise.reject(err);
+      });
 
-    const serverError = {
-      response: { status: 500, data: 'Internal Server Error' },
-      config: { url: '/test', _retryCount: 0 },
-      isAxiosError: true,
-    };
+      // The real backoff sleeps (1s + 2s + 4s = 7s), so give the test
+      // enough wall-clock time.  With MAX_RETRIES=3 the adapter fires
+      // 4 times: initial + 3 retries.
+      await api.get('/fail').catch(() => {});
 
-    // Mock adapter to always return 500.
-    let callCount = 0;
-    api.defaults.adapter = jest.fn().mockImplementation(() => {
-      callCount++;
-      return Promise.reject(serverError);
-    });
-
-    const requestPromise = api.get('/fail').catch((err: unknown) => err);
-
-    // Advance through the retry backoff timers (1s, 2s, 4s).
-    for (let i = 0; i < 10; i++) {
-      await Promise.resolve(); // flush microtasks
-      jest.advanceTimersByTime(5000);
-      await Promise.resolve();
-    }
-
-    await requestPromise;
-
-    // The adapter should have been called more than once (initial + retries).
-    expect(callCount).toBeGreaterThan(1);
-  });
+      // initial call + 3 retries = 4 total
+      expect(callCount).toBe(4);
+    },
+    30_000 // generous timeout to accommodate real backoff sleeps
+  );
 
   it('does not retry on 4xx errors', async () => {
     getSpy.mockRestore();
 
     let callCount = 0;
-    api.defaults.adapter = jest.fn().mockImplementation(() => {
+    api.defaults.adapter = jest.fn().mockImplementation((config) => {
       callCount++;
-      const err = new Error('Not Found') as AxiosError;
+      const err = new Error('Not Found');
       (err as Record<string, unknown>).response = { status: 404 };
-      (err as Record<string, unknown>).config = { url: '/missing' };
+      (err as Record<string, unknown>).config = config;
       (err as Record<string, unknown>).isAxiosError = true;
       return Promise.reject(err);
     });
