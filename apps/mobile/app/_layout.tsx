@@ -1,9 +1,10 @@
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
+import { ErrorBoundary } from "../src/components/ErrorBoundary";
 
 export default function RootLayout() {
   return (
-    <>
+    <ErrorBoundary>
       <StatusBar style="dark" />
       <Stack
         screenOptions={{
@@ -19,6 +20,6 @@ export default function RootLayout() {
           options={{ headerShown: false, presentation: "modal" }}
         />
       </Stack>
-    </>
+    </ErrorBoundary>
   );
 }
