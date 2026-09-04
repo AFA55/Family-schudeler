@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ rooms: [] });
     }
 
-    const familyIds = memberships.map((m) => m.familyId);
+    const familyIds = memberships.map((m: { familyId: string }) => m.familyId);
 
     const rooms = await prisma.chatRoom.findMany({
       where: { familyId: { in: familyIds } },
@@ -45,7 +45,7 @@ export async function GET(request: NextRequest) {
       orderBy: { createdAt: "desc" },
     });
 
-    const formattedRooms = rooms.map((room) => ({
+    const formattedRooms = rooms.map((room: any) => ({
       id: room.id,
       familyId: room.familyId,
       name: room.name,

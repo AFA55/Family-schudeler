@@ -47,7 +47,7 @@ export function mockRequest(
     init.headers = headers;
   }
 
-  return new NextRequest(url.toString(), init);
+  return new NextRequest(url.toString(), init as any);
 }
 
 // ---------------------------------------------------------------------------

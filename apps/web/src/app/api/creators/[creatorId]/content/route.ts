@@ -7,7 +7,10 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { prisma, SocialPlatform } from "@familysync/database";
+import { prisma } from "@familysync/database";
+import type { SocialPlatform } from "@prisma/client";
+
+const SocialPlatformValues = ["TIKTOK", "YOUTUBE", "INSTAGRAM"] as const;
 
 const DEFAULT_PAGE = 1;
 const DEFAULT_LIMIT = 20;
@@ -49,7 +52,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     // If a platform filter is provided, use it; otherwise default to the creator's platform
     if (platform) {
       const upperPlatform = platform.toUpperCase();
-      if (Object.values(SocialPlatform).includes(upperPlatform as SocialPlatform)) {
+      if ((SocialPlatformValues as readonly string[]).includes(upperPlatform)) {
         contentWhere.platform = upperPlatform as SocialPlatform;
       }
     } else {

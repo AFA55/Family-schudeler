@@ -1,6 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   transpilePackages: ["@familysync/shared", "@familysync/database"],
+  turbopack: {},
   images: {
     remotePatterns: [
       { protocol: "https", hostname: "**" },

@@ -16,7 +16,7 @@ export async function createNotification(
       type,
       title,
       body,
-      data: data ?? undefined,
+      data: (data ?? undefined) as any,
     },
   });
 }
@@ -51,7 +51,7 @@ export async function notifyFamilyMembers(
       type,
       title,
       body,
-      data: data ?? undefined,
+      data: (data ?? undefined) as any,
     })),
   });
 
@@ -88,7 +88,7 @@ export async function notifyEventAttendees(
       type,
       title,
       body,
-      data: data ?? undefined,
+      data: (data ?? undefined) as any,
     })),
   });
 

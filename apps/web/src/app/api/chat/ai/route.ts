@@ -95,10 +95,10 @@ export async function POST(request: NextRequest) {
             senderId: userId,
             content: aiResponse.reply,
             isAI: true,
-            metadata: {
+            metadata: JSON.parse(JSON.stringify({
               recommendations: aiResponse.recommendations ?? null,
               suggestedEvent: aiResponse.suggestedEvent ?? null,
-            },
+            })),
           },
         ],
       });
