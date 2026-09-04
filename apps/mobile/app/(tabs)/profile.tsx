@@ -4,10 +4,38 @@ import {
   TouchableOpacity,
   ScrollView,
   StyleSheet,
+  ActivityIndicator,
 } from "react-native";
+import { useRouter } from "expo-router";
 import { colors } from "../../src/theme/colors";
+import { useAuthStore } from "../../src/store/authStore";
 
 export default function ProfileScreen() {
+  const router = useRouter();
+  const { user, isLoading, logout } = useAuthStore();
+
+  const handleLogout = () => {
+    logout();
+    router.replace("/(auth)/signin");
+  };
+
+  if (isLoading) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>Profile</Text>
+        </View>
+        <View style={styles.centered}>
+          <ActivityIndicator size="large" color={colors.primary[500]} />
+        </View>
+      </View>
+    );
+  }
+
+  const displayName = user?.name ?? "User";
+  const displayEmail = user?.email ?? "";
+  const initial = displayName.charAt(0).toUpperCase();
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
@@ -18,12 +46,12 @@ export default function ProfileScreen() {
         {/* User card */}
         <View style={styles.userCard}>
           <View style={styles.avatar}>
-            <Text style={styles.avatarText}>M</Text>
+            <Text style={styles.avatarText}>{initial}</Text>
           </View>
-          <Text style={styles.userName}>Marcus Johnson</Text>
-          <Text style={styles.userEmail}>marcus@email.com</Text>
+          <Text style={styles.userName}>{displayName}</Text>
+          <Text style={styles.userEmail}>{displayEmail}</Text>
           <View style={styles.planBadge}>
-            <Text style={styles.planText}>Family Plan · 12 days left in trial</Text>
+            <Text style={styles.planText}>Family Plan</Text>
           </View>
         </View>
 
@@ -63,7 +91,7 @@ export default function ProfileScreen() {
           </TouchableOpacity>
         ))}
 
-        <TouchableOpacity style={styles.logoutButton}>
+        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
           <Text style={styles.logoutText}>Sign Out</Text>
         </TouchableOpacity>
 
@@ -236,5 +264,10 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: colors.neutral[300],
     marginTop: 16,
+  },
+  centered: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
   },
 });

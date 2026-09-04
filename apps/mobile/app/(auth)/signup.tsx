@@ -8,27 +8,27 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  Alert,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { colors } from "../../src/theme/colors";
+import { useAuthStore } from "../../src/store/authStore";
 
 export default function SignUpScreen() {
   const router = useRouter();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [loading, setLoading] = useState(false);
+  const { signUp, isLoading: loading } = useAuthStore();
 
   const handleSignUp = async () => {
-    setLoading(true);
     try {
-      // TODO: Connect to API
-      // await authAPI.signUp({ name, email, password });
+      await signUp({ name, email, password });
       router.replace("/(onboarding)/interests");
-    } catch {
-      // Handle error
-    } finally {
-      setLoading(false);
+    } catch (error: unknown) {
+      const message =
+        error instanceof Error ? error.message : "Sign up failed. Please try again.";
+      Alert.alert("Sign Up Failed", message);
     }
   };
 

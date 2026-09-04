@@ -1,63 +1,117 @@
-import { useState } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
   View,
   Text,
   TouchableOpacity,
   ScrollView,
   StyleSheet,
+  ActivityIndicator,
 } from "react-native";
 import { colors, familyColors } from "../../src/theme/colors";
+import { useFamilyStore } from "../../src/store/familyStore";
+import { useAuthStore } from "../../src/store/authStore";
 
 const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
-// Mock data
-const mockEvents = [
-  {
-    id: "1",
-    title: "Family Hike",
-    time: "10:00 AM",
-    location: "Blue Ridge Trail",
-    category: "OUTDOOR",
-    color: familyColors[0],
-    day: 5,
-  },
-  {
-    id: "2",
-    title: "Game Night",
-    time: "7:00 PM",
-    location: "Home",
-    category: "GAME_NIGHT",
-    color: familyColors[3],
-    day: 12,
-  },
-  {
-    id: "3",
-    title: "Italian Dinner",
-    time: "6:30 PM",
-    location: "Olive Garden",
-    category: "DINING",
-    color: familyColors[1],
-    day: 15,
-  },
-  {
-    id: "4",
-    title: "Movie Night",
-    time: "8:00 PM",
-    location: "Home",
-    category: "MOVIE_NIGHT",
-    color: familyColors[4],
-    day: 20,
-  },
-];
+const CATEGORY_EMOJI: Record<string, string> = {
+  OUTDOOR: "🌿",
+  GAME_NIGHT: "🎲",
+  DINING: "🍝",
+  MOVIE_NIGHT: "🎬",
+  FAMILY_TIME: "👨‍👩‍👧‍👦",
+  ADVENTURE: "🥾",
+  SPORTS: "⚽",
+  CRAFTS: "🎨",
+  HOLIDAY: "🎉",
+  BIRTHDAY: "🎂",
+  TRAVEL: "✈️",
+  APPOINTMENT: "📋",
+  GENERAL: "📅",
+};
+
+function formatTime(isoString: string): string {
+  const date = new Date(isoString);
+  return date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+}
 
 export default function CalendarScreen() {
-  const [selectedDate, setSelectedDate] = useState(29);
-  const today = 29; // March 29, 2026
+  const now = new Date();
+  const [currentMonth, setCurrentMonth] = useState(now.getMonth());
+  const [currentYear, setCurrentYear] = useState(now.getFullYear());
+  const [selectedDate, setSelectedDate] = useState(now.getDate());
+  const todayDay = now.getDate();
+  const todayMonth = now.getMonth();
+  const todayYear = now.getFullYear();
+
+  const { events, isLoading, activeFamily, fetchEvents, fetchFamilies } =
+    useFamilyStore();
+  const { user } = useAuthStore();
+  const [error, setError] = useState<string | null>(null);
+
+  // Fetch families on mount if needed, then fetch events for the month
+  useEffect(() => {
+    const load = async () => {
+      setError(null);
+      try {
+        if (!activeFamily && user?.id) {
+          await fetchFamilies(user.id);
+        }
+      } catch {
+        setError("Failed to load family data.");
+      }
+    };
+    load();
+  }, [user?.id]);
+
+  useEffect(() => {
+    const load = async () => {
+      if (!activeFamily?.id) return;
+      setError(null);
+      try {
+        const start = new Date(currentYear, currentMonth, 1)
+          .toISOString()
+          .split("T")[0];
+        const end = new Date(currentYear, currentMonth + 1, 0)
+          .toISOString()
+          .split("T")[0];
+        await fetchEvents(activeFamily.id, start, end);
+      } catch {
+        setError("Failed to load events.");
+      }
+    };
+    load();
+  }, [activeFamily?.id, currentMonth, currentYear]);
+
+  // Map store events by day of month
+  const eventsByDay = useMemo(() => {
+    const map: Record<number, typeof displayEvents> = {};
+    const displayEvents = events.map((e, i) => {
+      const startDate = new Date(e.startTime);
+      return {
+        id: e.id,
+        title: e.title,
+        time: formatTime(e.startTime),
+        location: e.location ?? "",
+        category: e.category,
+        color: e.color ?? familyColors[i % familyColors.length],
+        day: startDate.getDate(),
+        month: startDate.getMonth(),
+        year: startDate.getFullYear(),
+      };
+    });
+    for (const ev of displayEvents) {
+      if (ev.month === currentMonth && ev.year === currentYear) {
+        if (!map[ev.day]) map[ev.day] = [];
+        map[ev.day].push(ev);
+      }
+    }
+    return map;
+  }, [events, currentMonth, currentYear]);
 
   const getDaysInMonth = () => {
-    const days = [];
-    const firstDay = 0; // March 2026 starts on Sunday
-    const totalDays = 31;
+    const days: (number | null)[] = [];
+    const firstDay = new Date(currentYear, currentMonth, 1).getDay();
+    const totalDays = new Date(currentYear, currentMonth + 1, 0).getDate();
 
     for (let i = 0; i < firstDay; i++) {
       days.push(null);
@@ -68,10 +122,15 @@ export default function CalendarScreen() {
     return days;
   };
 
-  const getEventsForDay = (day: number) =>
-    mockEvents.filter((e) => e.day === day);
-
+  const getEventsForDay = (day: number) => eventsByDay[day] ?? [];
   const selectedEvents = getEventsForDay(selectedDate);
+
+  const monthLabel = new Date(currentYear, currentMonth).toLocaleString(
+    "default",
+    { month: "long", year: "numeric" }
+  );
+  const isToday = (day: number) =>
+    day === todayDay && currentMonth === todayMonth && currentYear === todayYear;
 
   return (
     <View style={styles.container}>
@@ -79,13 +138,37 @@ export default function CalendarScreen() {
       <View style={styles.header}>
         <View>
           <Text style={styles.greeting}>Good morning!</Text>
-          <Text style={styles.headerTitle}>March 2026</Text>
+          <Text style={styles.headerTitle}>{monthLabel}</Text>
         </View>
         <TouchableOpacity style={styles.addButton}>
           <Text style={styles.addButtonText}>+ Add Event</Text>
         </TouchableOpacity>
       </View>
 
+      {error ? (
+        <View style={styles.centered}>
+          <Text style={styles.errorText}>{error}</Text>
+          <TouchableOpacity
+            style={styles.retryButton}
+            onPress={() => {
+              if (activeFamily?.id) {
+                const start = new Date(currentYear, currentMonth, 1)
+                  .toISOString()
+                  .split("T")[0];
+                const end = new Date(currentYear, currentMonth + 1, 0)
+                  .toISOString()
+                  .split("T")[0];
+                setError(null);
+                fetchEvents(activeFamily.id, start, end).catch(() =>
+                  setError("Failed to load events.")
+                );
+              }
+            }}
+          >
+            <Text style={styles.retryText}>Retry</Text>
+          </TouchableOpacity>
+        </View>
+      ) : (
       <ScrollView showsVerticalScrollIndicator={false}>
         {/* Calendar Grid */}
         <View style={styles.calendarCard}>
@@ -101,17 +184,17 @@ export default function CalendarScreen() {
           {/* Calendar days */}
           <View style={styles.daysGrid}>
             {getDaysInMonth().map((day, i) => {
-              const events = day ? getEventsForDay(day) : [];
-              const isToday = day === today;
-              const isSelected = day === selectedDate;
+              const dayEvents = day ? getEventsForDay(day) : [];
+              const dayIsToday = day ? isToday(day) : false;
+              const dayIsSelected = day === selectedDate;
 
               return (
                 <TouchableOpacity
                   key={i}
                   style={[
                     styles.dayCell,
-                    isToday && styles.todayCell,
-                    isSelected && !isToday && styles.selectedCell,
+                    dayIsToday && styles.todayCell,
+                    dayIsSelected && !dayIsToday && styles.selectedCell,
                   ]}
                   onPress={() => day && setSelectedDate(day)}
                   disabled={!day}
@@ -119,16 +202,16 @@ export default function CalendarScreen() {
                   <Text
                     style={[
                       styles.dayText,
-                      isToday && styles.todayText,
-                      isSelected && !isToday && styles.selectedText,
+                      dayIsToday && styles.todayText,
+                      dayIsSelected && !dayIsToday && styles.selectedText,
                       !day && styles.emptyDay,
                     ]}
                   >
                     {day || ""}
                   </Text>
-                  {events.length > 0 && (
+                  {dayEvents.length > 0 && (
                     <View style={styles.eventDots}>
-                      {events.slice(0, 3).map((event, j) => (
+                      {dayEvents.slice(0, 3).map((event, j) => (
                         <View
                           key={j}
                           style={[styles.eventDot, { backgroundColor: event.color }]}
@@ -142,12 +225,20 @@ export default function CalendarScreen() {
           </View>
         </View>
 
+        {/* Loading indicator for events */}
+        {isLoading && (
+          <View style={styles.loadingRow}>
+            <ActivityIndicator size="small" color={colors.primary[500]} />
+            <Text style={styles.loadingText}>Loading events...</Text>
+          </View>
+        )}
+
         {/* Selected day events */}
         <View style={styles.eventsSection}>
           <Text style={styles.eventsSectionTitle}>
-            {selectedDate === today
+            {isToday(selectedDate)
               ? "Today's Schedule"
-              : `March ${selectedDate}`}
+              : `${new Date(currentYear, currentMonth, selectedDate).toLocaleDateString("default", { month: "long", day: "numeric" })}`}
           </Text>
 
           {selectedEvents.length > 0 ? (
@@ -159,18 +250,12 @@ export default function CalendarScreen() {
                 <View style={styles.eventInfo}>
                   <Text style={styles.eventTitle}>{event.title}</Text>
                   <Text style={styles.eventDetail}>
-                    {event.time} · {event.location}
+                    {event.time}{event.location ? ` · ${event.location}` : ""}
                   </Text>
                 </View>
                 <View style={styles.eventCategory}>
                   <Text style={styles.eventCategoryText}>
-                    {event.category === "OUTDOOR"
-                      ? "🌿"
-                      : event.category === "GAME_NIGHT"
-                      ? "🎲"
-                      : event.category === "DINING"
-                      ? "🍝"
-                      : "🎬"}
+                    {CATEGORY_EMOJI[event.category] ?? "📅"}
                   </Text>
                 </View>
               </TouchableOpacity>
@@ -210,6 +295,7 @@ export default function CalendarScreen() {
           </ScrollView>
         </View>
       </ScrollView>
+      )}
     </View>
   );
 }
@@ -439,5 +525,39 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: colors.neutral[600],
     textAlign: "center",
+  },
+  centered: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 32,
+  },
+  errorText: {
+    fontSize: 15,
+    color: colors.coral[500],
+    textAlign: "center",
+    marginBottom: 12,
+  },
+  retryButton: {
+    backgroundColor: colors.primary[50],
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 12,
+  },
+  retryText: {
+    color: colors.primary[600],
+    fontWeight: "600",
+    fontSize: 14,
+  },
+  loadingRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 12,
+    gap: 8,
+  },
+  loadingText: {
+    fontSize: 13,
+    color: colors.neutral[400],
   },
 });
