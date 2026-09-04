@@ -19,7 +19,6 @@ module.exports = {
       },
     ],
   },
-  setupFilesAfterSetup: [],
   // Suppress console.error noise from route handlers during tests
   silent: false,
 };

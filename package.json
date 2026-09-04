@@ -16,6 +16,7 @@
     "db:push": "npm run push --workspace=packages/database",
     "db:migrate": "npm run migrate --workspace=packages/database",
     "db:studio": "npm run studio --workspace=packages/database",
+    "test": "npm run test --workspace=apps/web",
     "lint": "eslint .",
     "clean": "rm -rf node_modules apps/*/node_modules packages/*/node_modules"
   },
