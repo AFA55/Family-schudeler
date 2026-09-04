@@ -8,6 +8,7 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 import { colors } from "../../src/theme/colors";
+import { useOnboardingStore } from "../../src/store/onboardingStore";
 
 const goals = [
   { id: "quality-time", label: "More quality family time", emoji: "❤️" },
@@ -22,7 +23,8 @@ const goals = [
 
 export default function GoalsScreen() {
   const router = useRouter();
-  const [selected, setSelected] = useState<string[]>([]);
+  const { goals: savedGoals, setGoals } = useOnboardingStore();
+  const [selected, setSelected] = useState<string[]>(savedGoals);
 
   const toggle = (id: string) => {
     setSelected((prev) =>
@@ -82,7 +84,10 @@ export default function GoalsScreen() {
         <TouchableOpacity
           style={[styles.nextButton, selected.length === 0 && styles.nextDisabled]}
           disabled={selected.length === 0}
-          onPress={() => router.push("/(onboarding)/activities")}
+          onPress={() => {
+            setGoals(selected);
+            router.push("/(onboarding)/activities");
+          }}
         >
           <Text style={styles.nextText}>Continue</Text>
         </TouchableOpacity>

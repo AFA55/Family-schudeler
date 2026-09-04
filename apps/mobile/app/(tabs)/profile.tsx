@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import {
   View,
   Text,
@@ -9,10 +10,18 @@ import {
 import { useRouter } from "expo-router";
 import { colors } from "../../src/theme/colors";
 import { useAuthStore } from "../../src/store/authStore";
+import { useNotificationStore } from "../../src/store/notificationStore";
 
 export default function ProfileScreen() {
   const router = useRouter();
   const { user, isLoading, logout } = useAuthStore();
+  const { unreadCount, fetchNotifications } = useNotificationStore();
+
+  useEffect(() => {
+    if (user?.id) {
+      fetchNotifications(user.id).catch(() => {});
+    }
+  }, [user?.id]);
 
   const handleLogout = () => {
     logout();
@@ -76,7 +85,7 @@ export default function ProfileScreen() {
         {/* Settings */}
         <Text style={styles.sectionTitle}>Settings</Text>
         {[
-          { icon: "🔔", label: "Notifications", value: "On" },
+          { icon: "🔔", label: "Notifications", value: unreadCount > 0 ? `${unreadCount} unread` : "All read" },
           { icon: "🎨", label: "Appearance", value: "Light" },
           { icon: "💳", label: "Subscription", value: "Family" },
           { icon: "🔒", label: "Privacy", value: "" },

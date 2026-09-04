@@ -8,6 +8,7 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 import { colors } from "../../src/theme/colors";
+import { useOnboardingStore } from "../../src/store/onboardingStore";
 
 const interests = [
   { id: "hiking", label: "Hiking & Nature", emoji: "🥾" },
@@ -30,7 +31,8 @@ const interests = [
 
 export default function InterestsScreen() {
   const router = useRouter();
-  const [selected, setSelected] = useState<string[]>([]);
+  const { interests: savedInterests, setInterests } = useOnboardingStore();
+  const [selected, setSelected] = useState<string[]>(savedInterests);
 
   const toggle = (id: string) => {
     setSelected((prev) =>
@@ -81,7 +83,10 @@ export default function InterestsScreen() {
         <TouchableOpacity
           style={[styles.nextButton, selected.length === 0 && styles.nextDisabled]}
           disabled={selected.length === 0}
-          onPress={() => router.push("/(onboarding)/goals")}
+          onPress={() => {
+            setInterests(selected);
+            router.push("/(onboarding)/goals");
+          }}
         >
           <Text style={styles.nextText}>
             Continue ({selected.length} selected)

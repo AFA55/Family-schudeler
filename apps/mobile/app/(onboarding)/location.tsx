@@ -2,6 +2,7 @@ import { useState } from "react";
 import { View, Text, TextInput, TouchableOpacity, StyleSheet } from "react-native";
 import { useRouter } from "expo-router";
 import { colors } from "../../src/theme/colors";
+import { useOnboardingStore } from "../../src/store/onboardingStore";
 
 const distances = [
   { value: 10, label: "10 mi" },
@@ -12,8 +13,13 @@ const distances = [
 
 export default function LocationScreen() {
   const router = useRouter();
-  const [address, setAddress] = useState("");
-  const [selectedDistance, setSelectedDistance] = useState(25);
+  const {
+    address: savedAddress,
+    maxTravelDistance: savedDistance,
+    setLocation,
+  } = useOnboardingStore();
+  const [address, setAddress] = useState(savedAddress);
+  const [selectedDistance, setSelectedDistance] = useState(savedDistance);
 
   return (
     <View style={styles.container}>
@@ -77,7 +83,10 @@ export default function LocationScreen() {
       <View style={styles.footer}>
         <TouchableOpacity
           style={styles.nextButton}
-          onPress={() => router.push("/(onboarding)/charity")}
+          onPress={() => {
+            setLocation({ address, maxTravelDistance: selectedDistance });
+            router.push("/(onboarding)/charity");
+          }}
         >
           <Text style={styles.nextText}>Continue</Text>
         </TouchableOpacity>

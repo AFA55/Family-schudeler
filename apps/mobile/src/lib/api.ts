@@ -113,3 +113,25 @@ export const subscriptionAPI = {
   checkout: (data: { userId: string; plan: string; interval: string }) =>
     api.post("/stripe/checkout", data),
 };
+
+// ---- Chat ----
+export const chatAPI = {
+  getRooms: (userId: string) =>
+    api.get(`/chat/rooms?userId=${userId}`),
+  createRoom: (familyId: string, userId: string, name?: string) =>
+    api.post("/chat/rooms", { familyId, userId, name }),
+  getMessages: (roomId: string, userId: string, cursor?: string) => {
+    const params = new URLSearchParams({ userId });
+    if (cursor) params.set("cursor", cursor);
+    return api.get(`/chat/rooms/${roomId}/messages?${params.toString()}`);
+  },
+  sendMessage: (roomId: string, userId: string, content: string) =>
+    api.post(`/chat/rooms/${roomId}/messages`, { content, userId }),
+  askAI: (
+    message: string,
+    familyId: string,
+    userId: string,
+    roomId?: string
+  ) =>
+    api.post("/chat/ai", { message, familyId, userId, roomId }),
+};

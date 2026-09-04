@@ -2,6 +2,7 @@ import { useState } from "react";
 import { View, Text, TouchableOpacity, ScrollView, StyleSheet } from "react-native";
 import { useRouter } from "expo-router";
 import { colors } from "../../src/theme/colors";
+import { useOnboardingStore } from "../../src/store/onboardingStore";
 
 const regions = [
   { id: "US", label: "Families in the US", flag: "🇺🇸", description: "Support local families in need" },
@@ -14,7 +15,8 @@ const regions = [
 
 export default function CharityScreen() {
   const router = useRouter();
-  const [selected, setSelected] = useState<string[]>([]);
+  const { helpCountryPreference: savedCharity, setCharity } = useOnboardingStore();
+  const [selected, setSelected] = useState<string[]>(savedCharity);
 
   const toggle = (id: string) => {
     setSelected((prev) =>
@@ -79,7 +81,10 @@ export default function CharityScreen() {
         <TouchableOpacity
           style={[styles.nextButton, selected.length === 0 && styles.nextDisabled]}
           disabled={selected.length === 0}
-          onPress={() => router.replace("/(onboarding)/complete")}
+          onPress={() => {
+            setCharity(selected);
+            router.replace("/(onboarding)/complete");
+          }}
         >
           <Text style={styles.nextText}>Complete Setup</Text>
         </TouchableOpacity>
