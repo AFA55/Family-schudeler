@@ -5,12 +5,12 @@ import {
   TouchableOpacity,
   ScrollView,
   StyleSheet,
-  ActivityIndicator,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { colors } from "../../src/theme/colors";
 import { useAuthStore } from "../../src/store/authStore";
 import { useNotificationStore } from "../../src/store/notificationStore";
+import { LoadingSkeleton } from "../../src/components/LoadingSkeleton";
 
 export default function ProfileScreen() {
   const router = useRouter();
@@ -34,9 +34,7 @@ export default function ProfileScreen() {
         <View style={styles.header}>
           <Text style={styles.headerTitle}>Profile</Text>
         </View>
-        <View style={styles.centered}>
-          <ActivityIndicator size="large" color={colors.primary[500]} />
-        </View>
+        <LoadingSkeleton variant="profile" />
       </View>
     );
   }

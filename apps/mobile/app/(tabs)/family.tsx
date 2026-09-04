@@ -5,13 +5,15 @@ import {
   TouchableOpacity,
   ScrollView,
   StyleSheet,
-  ActivityIndicator,
   Alert,
 } from "react-native";
 import { colors, familyColors } from "../../src/theme/colors";
 import { useFamilyStore } from "../../src/store/familyStore";
 import { useAuthStore } from "../../src/store/authStore";
 import { familyAPI } from "../../src/lib/api";
+import { LoadingSkeleton } from "../../src/components/LoadingSkeleton";
+import { RetryView } from "../../src/components/RetryView";
+import { EmptyState } from "../../src/components/EmptyState";
 
 interface FamilyMember {
   id: string;
@@ -67,9 +69,7 @@ export default function FamilyScreen() {
         <View style={styles.header}>
           <Text style={styles.headerTitle}>Family</Text>
         </View>
-        <View style={styles.centered}>
-          <ActivityIndicator size="large" color={colors.primary[500]} />
-        </View>
+        <LoadingSkeleton variant="profile" />
       </View>
     );
   }
@@ -80,22 +80,17 @@ export default function FamilyScreen() {
         <View style={styles.header}>
           <Text style={styles.headerTitle}>Family</Text>
         </View>
-        <View style={styles.centered}>
-          <Text style={styles.errorText}>{error}</Text>
-          <TouchableOpacity
-            style={styles.retryButton}
-            onPress={() => {
-              if (user?.id) {
-                setError(null);
-                fetchFamilies(user.id).catch(() =>
-                  setError("Failed to load family.")
-                );
-              }
-            }}
-          >
-            <Text style={styles.retryText}>Retry</Text>
-          </TouchableOpacity>
-        </View>
+        <RetryView
+          message={error}
+          onRetry={() => {
+            if (user?.id) {
+              setError(null);
+              fetchFamilies(user.id).catch(() =>
+                setError("Failed to load family.")
+              );
+            }
+          }}
+        />
       </View>
     );
   }
@@ -106,12 +101,11 @@ export default function FamilyScreen() {
         <View style={styles.header}>
           <Text style={styles.headerTitle}>Family</Text>
         </View>
-        <View style={styles.centered}>
-          <Text style={styles.emptyEmoji}>👨‍👩‍👧‍👦</Text>
-          <Text style={styles.emptyText}>
-            No family yet. Create or join one to get started!
-          </Text>
-        </View>
+        <EmptyState
+          icon="👨‍👩‍👧‍👦"
+          title="No family yet"
+          message="Create or join a family to get started!"
+        />
       </View>
     );
   }
@@ -161,9 +155,7 @@ export default function FamilyScreen() {
         {/* Members */}
         <Text style={styles.sectionTitle}>Members</Text>
         {membersLoading ? (
-          <View style={styles.loadingRow}>
-            <ActivityIndicator size="small" color={colors.primary[500]} />
-          </View>
+          <LoadingSkeleton variant="list" count={3} />
         ) : members.length > 0 ? (
           members.map((member, index) => (
             <View key={member.id} style={styles.memberCard}>

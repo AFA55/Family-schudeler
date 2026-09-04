@@ -5,12 +5,14 @@ import {
   TouchableOpacity,
   ScrollView,
   StyleSheet,
-  ActivityIndicator,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { colors, familyColors } from "../../src/theme/colors";
 import { useFamilyStore } from "../../src/store/familyStore";
 import { useAuthStore } from "../../src/store/authStore";
+import { LoadingSkeleton } from "../../src/components/LoadingSkeleton";
+import { RetryView } from "../../src/components/RetryView";
+import { EmptyState } from "../../src/components/EmptyState";
 
 const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
@@ -151,28 +153,23 @@ export default function CalendarScreen() {
       </View>
 
       {error ? (
-        <View style={styles.centered}>
-          <Text style={styles.errorText}>{error}</Text>
-          <TouchableOpacity
-            style={styles.retryButton}
-            onPress={() => {
-              if (activeFamily?.id) {
-                const start = new Date(currentYear, currentMonth, 1)
-                  .toISOString()
-                  .split("T")[0];
-                const end = new Date(currentYear, currentMonth + 1, 0)
-                  .toISOString()
-                  .split("T")[0];
-                setError(null);
-                fetchEvents(activeFamily.id, start, end).catch(() =>
-                  setError("Failed to load events.")
-                );
-              }
-            }}
-          >
-            <Text style={styles.retryText}>Retry</Text>
-          </TouchableOpacity>
-        </View>
+        <RetryView
+          message={error}
+          onRetry={() => {
+            if (activeFamily?.id) {
+              const start = new Date(currentYear, currentMonth, 1)
+                .toISOString()
+                .split("T")[0];
+              const end = new Date(currentYear, currentMonth + 1, 0)
+                .toISOString()
+                .split("T")[0];
+              setError(null);
+              fetchEvents(activeFamily.id, start, end).catch(() =>
+                setError("Failed to load events.")
+              );
+            }
+          }}
+        />
       ) : (
       <ScrollView showsVerticalScrollIndicator={false}>
         {/* Calendar Grid */}
@@ -232,10 +229,7 @@ export default function CalendarScreen() {
 
         {/* Loading indicator for events */}
         {isLoading && (
-          <View style={styles.loadingRow}>
-            <ActivityIndicator size="small" color={colors.primary[500]} />
-            <Text style={styles.loadingText}>Loading events...</Text>
-          </View>
+          <LoadingSkeleton variant="calendar" />
         )}
 
         {/* Selected day events */}
@@ -270,18 +264,13 @@ export default function CalendarScreen() {
               </TouchableOpacity>
             ))
           ) : (
-            <View style={styles.noEvents}>
-              <Text style={styles.noEventsEmoji}>📅</Text>
-              <Text style={styles.noEventsText}>No events scheduled</Text>
-              <TouchableOpacity
-                style={styles.noEventsButton}
-                onPress={() => router.push("/event/create")}
-              >
-                <Text style={styles.noEventsButtonText}>
-                  Plan something fun
-                </Text>
-              </TouchableOpacity>
-            </View>
+            <EmptyState
+              icon="📅"
+              title="No events scheduled"
+              message="This day is wide open. Plan something fun with your family!"
+              actionLabel="Plan something fun"
+              onAction={() => router.push("/event/create")}
+            />
           )}
         </View>
 

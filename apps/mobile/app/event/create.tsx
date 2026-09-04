@@ -16,6 +16,7 @@ import { useRouter } from "expo-router";
 import { colors, familyColors } from "../../src/theme/colors";
 import { useAuthStore } from "../../src/store/authStore";
 import { useFamilyStore } from "../../src/store/familyStore";
+import { RetryView } from "../../src/components/RetryView";
 import type { EventCategory } from "@familysync/shared";
 
 // Category display config with emoji and color
@@ -115,6 +116,7 @@ export default function CreateEventScreen() {
   const [cost, setCost] = useState("");
   const [selectedMembers, setSelectedMembers] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   // Validation
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -168,6 +170,7 @@ export default function CreateEventScreen() {
     }
 
     setIsSubmitting(true);
+    setSubmitError(null);
     try {
       const parsedStart = parseInput(startTime)!;
       const parsedEnd = parseInput(endTime)!;
@@ -190,10 +193,10 @@ export default function CreateEventScreen() {
       Alert.alert("Event Created", `"${title.trim()}" has been added to your calendar.`, [
         { text: "OK", onPress: () => router.back() },
       ]);
-    } catch (error: unknown) {
+    } catch (err: unknown) {
       const message =
-        error instanceof Error ? error.message : "Something went wrong";
-      Alert.alert("Error", message);
+        err instanceof Error ? err.message : "Something went wrong";
+      setSubmitError(message);
     } finally {
       setIsSubmitting(false);
     }
@@ -421,6 +424,14 @@ export default function CreateEventScreen() {
             })}
           </View>
         </View>
+
+        {/* Submission Error */}
+        {submitError && (
+          <RetryView
+            message={submitError}
+            onRetry={handleCreate}
+          />
+        )}
 
         {/* Create Button */}
         <TouchableOpacity

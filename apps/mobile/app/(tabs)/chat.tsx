@@ -16,6 +16,8 @@ import { colors } from "../../src/theme/colors";
 import { useAuthStore } from "../../src/store/authStore";
 import { useFamilyStore } from "../../src/store/familyStore";
 import { chatAPI } from "../../src/lib/api";
+import { LoadingSkeleton } from "../../src/components/LoadingSkeleton";
+import { RetryView } from "../../src/components/RetryView";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -430,10 +432,7 @@ export default function ChatScreen() {
             {room?.name ?? activeFamily.name ?? "Family Chat"}
           </Text>
         </View>
-        <View style={styles.centeredContainer}>
-          <ActivityIndicator size="large" color={colors.primary[500]} />
-          <Text style={styles.loadingText}>Loading chat...</Text>
-        </View>
+        <LoadingSkeleton variant="list" count={6} />
       </View>
     );
   }
@@ -446,16 +445,10 @@ export default function ChatScreen() {
         <View style={styles.header}>
           <Text style={styles.headerTitle}>Family Chat</Text>
         </View>
-        <View style={styles.centeredContainer}>
-          <Text style={styles.errorEmoji}>!</Text>
-          <Text style={styles.errorText}>{error}</Text>
-          <TouchableOpacity
-            style={styles.retryButton}
-            onPress={initializeRoom}
-          >
-            <Text style={styles.retryButtonText}>Try Again</Text>
-          </TouchableOpacity>
-        </View>
+        <RetryView
+          message={error}
+          onRetry={initializeRoom}
+        />
       </View>
     );
   }

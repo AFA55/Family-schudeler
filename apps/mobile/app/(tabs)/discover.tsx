@@ -6,10 +6,12 @@ import {
   ScrollView,
   TextInput,
   StyleSheet,
-  ActivityIndicator,
 } from "react-native";
 import { colors } from "../../src/theme/colors";
 import { useDiscoverStore } from "../../src/store/discoverStore";
+import { LoadingSkeleton } from "../../src/components/LoadingSkeleton";
+import { RetryView } from "../../src/components/RetryView";
+import { EmptyState } from "../../src/components/EmptyState";
 
 const categories = [
   { id: "all", label: "All", emoji: "✨" },
@@ -158,28 +160,20 @@ export default function DiscoverScreen() {
       <ScrollView showsVerticalScrollIndicator={false} style={styles.listScroll}>
         {/* Loading state */}
         {isLoading && (
-          <View style={styles.loadingRow}>
-            <ActivityIndicator size="small" color={colors.primary[500]} />
-            <Text style={styles.loadingText}>Loading recommendations...</Text>
-          </View>
+          <LoadingSkeleton variant="card" count={3} />
         )}
 
         {/* Error state */}
         {error && !isLoading && (
-          <View style={styles.errorContainer}>
-            <Text style={styles.errorText}>{error}</Text>
-            <TouchableOpacity
-              style={styles.retryButton}
-              onPress={() => {
-                setError(null);
-                fetchFeed({}).catch(() =>
-                  setError("Failed to load recommendations.")
-                );
-              }}
-            >
-              <Text style={styles.retryText}>Retry</Text>
-            </TouchableOpacity>
-          </View>
+          <RetryView
+            message={error}
+            onRetry={() => {
+              setError(null);
+              fetchFeed({}).catch(() =>
+                setError("Failed to load recommendations.")
+              );
+            }}
+          />
         )}
 
         {/* Trending from Social Media */}
@@ -219,6 +213,13 @@ export default function DiscoverScreen() {
 
         {/* Curated Recommendations */}
         <Text style={styles.curatedTitle}>Recommended For You</Text>
+        {!isLoading && !error && filtered.length === 0 && (
+          <EmptyState
+            icon="🔍"
+            title="No activities found"
+            message="Try a different category or search term to discover new experiences."
+          />
+        )}
         {filtered.map((item) => (
           <TouchableOpacity key={item.id} style={styles.recCard}>
             <View style={[styles.recEmoji, { backgroundColor: `${item.color}15` }]}>

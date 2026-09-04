@@ -6,13 +6,14 @@ import {
   ScrollView,
   StyleSheet,
   Alert,
-  ActivityIndicator,
 } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { colors, familyColors } from "../../src/theme/colors";
 import { useAuthStore } from "../../src/store/authStore";
 import { useFamilyStore } from "../../src/store/familyStore";
 import { eventAPI } from "../../src/lib/api";
+import { LoadingSkeleton } from "../../src/components/LoadingSkeleton";
+import { RetryView } from "../../src/components/RetryView";
 import type { CalendarEvent, EventAttendeeInfo, EventCategory } from "@familysync/shared";
 
 // Category display config
@@ -179,6 +180,7 @@ export default function EventDetailScreen() {
 
   const [event, setEvent] = useState<CalendarEvent | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [rsvpLoading, setRsvpLoading] = useState(false);
 
   useEffect(() => {
@@ -187,13 +189,20 @@ export default function EventDetailScreen() {
 
   async function loadEvent() {
     setIsLoading(true);
+    setLoadError(null);
     try {
       const response = await eventAPI.get(id!);
       const data: CalendarEvent = response.data.event ?? response.data;
       setEvent(data);
     } catch {
       // Fall back to mock data when API is not available
-      setEvent(getMockEvent(id!));
+      const mock = getMockEvent(id!);
+      if (mock.title === "Event" && mock.attendees.length === 0) {
+        // Generic fallback means event was truly not found
+        setLoadError("Failed to load event details.");
+      } else {
+        setEvent(mock);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -276,7 +285,18 @@ export default function EventDetailScreen() {
   if (isLoading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={colors.primary[500]} />
+        <LoadingSkeleton variant="card" count={2} />
+      </View>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <View style={styles.loadingContainer}>
+        <RetryView
+          message={loadError}
+          onRetry={loadEvent}
+        />
       </View>
     );
   }
