@@ -39,43 +39,38 @@ See EXECUTIVE_SUMMARY.md for full details.
 
 ## Current Sprint Backlog
 
-### 1. Shop Clock-In Station — Hardware + Software
+### 1. Shop Clock-In Station — Software First, Hardware Later
 **Priority:** HIGH — Key differentiator, nobody else has this
 
-#### Hardware Recommendation (Order from Amazon)
+#### Strategy: Digital First, Hardware as Premium Add-On
 
-**RECOMMENDED: Option A — Android Tablet + Kiosk Mode ($120-180 total)**
+**Phase 1 (NOW): Digital clock-in via the app.** Operators already have PINs (1001-1010). The `kiosk_clock_in()` backend function is built and tested. Just need the kiosk screen in the Pontifex mobile app. Zero hardware cost.
 
-Buy a basic Android tablet, mount it by the shop door, run Pontifex in kiosk mode. Operators enter their 4-digit PIN to clock in/out. This is the fastest path — software is already built.
+**Phase 2 (LATER): Physical kiosk as optional upgrade.** Mount a spare phone or cheap tablet by the shop door running the Pontifex app locked to the kiosk screen. This becomes a premium feature for customers — "Pontifex Kiosk" add-on.
 
-Suggested hardware:
-- **Tablet:** Samsung Galaxy Tab A9 (~$130) or Lenovo Tab M10 (~$150) — both have WiFi, decent screens, long battery or plug in
-- **Wall mount:** AboveTEK tablet wall mount (~$25) or PADHOLDR tablet holder
-- **Power:** USB-C cable + wall plug (keep it plugged in 24/7)
-- **Total: ~$155-175**
+#### Why NOT a Standalone Hardware Device
 
-The `kiosk_clock_in()` function is already built and tested in Supabase. The kiosk screen in the app just needs to call this function.
+Researched every option on Amazon (NGTeco, uAttend, standalone keypad devices). The problem with all of them: **they run their own closed software with no API.** Data exports via USB/CSV only. You'd have timecards in two places and manually reconcile them. That defeats the purpose.
 
-**ALTERNATIVE: Option B — Dedicated Time Clock Device ($80-200)**
+The only hardware that integrates directly is something running YOUR app — which means a phone/tablet.
 
-Standalone devices with PIN + fingerprint + RFID. The problem: these run their own proprietary software and export data via USB/CSV. They DON'T integrate with Pontifex directly — you'd need a manual data sync process.
+#### Hardware Options (When Ready for Phase 2)
 
-Products:
-- NGTeco W3 WiFi Fingerprint Clock (~$90) — has WiFi but no open API
-- uAttend BN6500 (~$200) — cloud-based but requires uAttend subscription ($20/mo)
+| Option | Cost | What It Is |
+|--------|------|------------|
+| **Spare old phone** | $0 + $25 wall mount | Mount by door, plug in, lock to kiosk screen |
+| **Cheap Android tablet** | ~$130 + $25 mount | Samsung Galaxy Tab A9 or similar, wall mounted |
+| **Tablet + NFC tags** | ~$170 total | Same tablet + NTAG215 keyfobs ($2 each) — operators tap to clock in |
+| **ESP32 DIY keypad** | ~$30 parts | Custom firmware needed — weeks of embedded dev, not worth it now |
 
-**NOT recommended** because of the integration gap. Option A gives you native integration for less money.
+**Recommendation:** Use a spare phone for now ($0). Order a Samsung Galaxy Tab A9 when you want the polished kiosk experience. NFC tags are a future upgrade on top of that.
 
-**FUTURE: Option C — NFC Tags + Tablet ($175-200 total)**
+#### For Customers (Future Revenue Opportunity)
 
-Same tablet as Option A, but add NFC tags (~$2 each) assigned to each operator. They tap their tag on the tablet instead of entering a PIN. More like a "badge scan" experience.
-
-Hardware:
-- Same tablet as Option A
-- NTAG215 NFC tags/keyfobs (25-pack ~$15 on Amazon)
-- The `nfc_tags` table and `kiosk_clock_in()` NFC path are already built
-
-This requires the tablet to have NFC (Samsung Tab A9 does, Lenovo Tab M10 does NOT). Check specs before ordering.
+The kiosk hardware becomes a product offering:
+- **Pontifex Kiosk Kit:** tablet + wall mount + NFC tags, pre-configured with your software
+- Sell it as an add-on to your software subscription
+- Neither DSM nor CenPoint offer anything like this
 
 #### Database Status
 - `kiosk_clock_in(pin, tenant_id, nfc_tag_uid)` — LIVE, tested, works
