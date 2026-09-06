@@ -216,20 +216,149 @@ What to build:
 
 ---
 
-## Next Session Planning
+## Next Session — Exact Task List
 
-### Immediate (requires Pontifex repo access)
-1. Build Kiosk Clock-In screen (PIN pad UI)
-2. Build PM Job Hub dashboard screen
-3. Fix 4 mobile bugs (view ticket, Face ID, password, will-call form)
+**Repo:** `AFA55/PontifexIndustriesSoftware` (private, TypeScript, React Native + Supabase)
+**Supabase Project:** `klatddoyncxidgqtcjnu` (pontifex-platform)
+**Tenant ID:** `ee3d8081-cec2-47f3-ac23-bdc0bb2d142d`
 
-### Short-term (1-2 weeks)
-4. Invoice generation flow + PDF
-5. Printable job ticket with crew list
-6. Offline mode with queued sync
+### TASK 1: Build Kiosk Clock-In Screen
+**Files to create/edit in Pontifex repo**
 
-### Medium-term (2-4 weeks)
-7. AI scheduling (operator skills + equipment + drive distance optimization)
-8. Customer portal (GCs view job status, sign waivers remotely)
-9. QuickBooks integration
-10. Weekly timecard report exports
+Build a new screen in the mobile app for shop kiosk mode:
+- Full-screen PIN entry keypad (large buttons, 0-9 + clear + enter)
+- Shows "Enter Your PIN" prompt
+- On valid PIN → calls Supabase RPC `kiosk_clock_in(pin, tenant_id, null)`
+- Shows result: operator name + "CLOCKED IN" or "CLOCKED OUT" with timestamp
+- Green flash for clock-in, red flash for clock-out
+- Show last 5 clock-in/out events as a feed below the keypad
+- Auto-clear display after 5 seconds, ready for next operator
+- No navigation bar — this screen runs standalone on a shop device
+
+Backend is DONE: `kiosk_clock_in()` is live and tested in Supabase.
+
+### TASK 2: Build PM Job Hub Dashboard
+**Files to create/edit in Pontifex repo**
+
+Build a Project Manager dashboard screen:
+- Query: `SELECT * FROM pm_job_hub WHERE project_manager_id = current_user_id OR project_manager_id IS NULL`
+- Each job card shows: job_number, customer_name, status badge, scheduled_date
+- Waiver indicator: green check (signed), red alert (overdue), yellow dot (pending), gray (not required)
+- Crew count badge, total hours, work items count, missing daily logs count
+- Quick-action buttons per job:
+  - "Waiver Reminder" → `send_pm_notification(pm_id, assigned_to, job_id, message, 'sign_waiver')`
+  - "Log Work" → same with type `'submit_daily_log'`
+  - "Clock In" → same with type `'clock_in'`
+  - Custom message → free text input
+- Filter tabs: All / Active / Overdue Waivers / Will-Call / On Hold
+- Tap job → navigate to existing job detail screen
+
+Backend is DONE: `pm_job_hub` view and `send_pm_notification()` are live in Supabase.
+
+### TASK 3: Fix 4 Mobile Bugs
+
+**Bug 3a: View Ticket opens browser**
+- Find where `Linking.openURL()` or `WebBrowser.openBrowserAsync()` is called for job/notification navigation
+- Replace with in-app navigation using the router: map `/dashboard/my-jobs/:id` → the mobile job detail screen
+- Check notification tap handlers — the `action_url` field contains web paths that need mapping
+
+**Bug 3b: Face ID triggers 3 times**
+- Find the biometric authentication `useEffect`
+- Add a `useRef` guard: `const biometricAttempted = useRef(false)` → check and set before authenticating
+- Ensure the effect dependency array is empty `[]`
+
+**Bug 3c: Password remember broken**
+- Find the login screen's TextInput components
+- Add to email input: `textContentType="emailAddress"` (iOS), `autoComplete="email"` (Android)
+- Add to password input: `textContentType="password"` (iOS), `autoComplete="password"` (Android), ensure `secureTextEntry={true}`
+
+**Bug 3d: Will-call form validation**
+- Find the job creation/edit form
+- When `is_will_call` is toggled on, skip the `scheduled_date` required validation
+- The database trigger `trg_handle_will_call_date` already handles clearing the date server-side
+
+### TASK 4: Invoicing Pipeline (Database + Frontend)
+
+**Supabase backend to build:**
+- RPC function `generate_invoice_from_job(job_order_id)` that:
+  - Pulls work_items for the job
+  - Creates invoice record with auto-generated invoice number
+  - Creates invoice_line_items from work_items (description, quantity, unit_price, total)
+  - Updates job_orders.billing_status to 'invoiced'
+  - Returns the invoice data
+
+**Frontend to build:**
+- Invoice generation button on completed jobs
+- Invoice detail screen showing line items, totals, customer info
+- PDF export (use a React Native PDF library or generate server-side)
+- Email invoice to customer_email on job_orders
+- Invoice list screen for admin with status filters (unbilled, invoiced, paid, overdue)
+
+### TASK 5: Printable Job Ticket
+- Create a formatted view/PDF of a job ticket that includes:
+  - Job number, customer, location, dates
+  - Full crew list (from `job_crew_assignments`, not just `assigned_to`)
+  - Work performed items with quantities
+  - Hours worked per crew member
+  - Signatures (waiver, completion)
+  - This is what gets printed — the ticket that currently "doesn't tell you anything"
+
+### TASK 6: Work Performed Workflow (Analyze First)
+- Review the current operator workflow for logging work_items
+- Identify what fields are being skipped
+- Determine if we need: required photos, auto-populated work types from job scope, mandatory accessibility ratings
+- Document findings before changing the flow
+
+---
+
+## Supabase Connection Details
+
+**Project URL:** https://klatddoyncxidgqtcjnu.supabase.co
+**Tenant ID:** ee3d8081-cec2-47f3-ac23-bdc0bb2d142d
+
+### Live Functions (ready to call from frontend)
+```sql
+-- Clock in/out from kiosk
+SELECT kiosk_clock_in('1001', 'ee3d8081-cec2-47f3-ac23-bdc0bb2d142d', NULL);
+
+-- PM sends notification to operator
+SELECT send_pm_notification(
+  sender_uuid,      -- PM's user ID
+  recipient_uuid,   -- operator's user ID  
+  job_order_uuid,   -- job order ID
+  'Your message',   -- message text
+  'sign_waiver'     -- type: sign_waiver | submit_daily_log | clock_in | complete_ticket
+);
+```
+
+### Live Views
+```sql
+-- PM dashboard data
+SELECT * FROM pm_job_hub WHERE status NOT IN ('completed', 'cancelled', 'archived');
+```
+
+### Operator PINs (for kiosk testing)
+1001=Keontre, 1002=Conrade, 1003=Dante, 1004=Zachary, 1005=Aiden,
+1006=Axel, 1007=Devin, 1008=Micah, 1009=Javier, 1010=Lucas
+
+---
+
+## Also Completed This Session (FamilySync)
+
+**Repo:** AFA55/Family-schudeler
+**Branch:** claude/analyze-executive-summary-pGycz
+**PR:** https://github.com/AFA55/Family-schudeler/pull/1
+
+Built the entire FamilySync app from Executive Summary:
+- 20 commits, 89+ files, 30,667+ lines
+- 35 API routes, 22 mobile screens, 184 tests passing
+- Production build verified (Next.js 15.3.3)
+- All 5 priorities (P1-P5) complete
+- Seed data: 6 charities, 40 activities across 5 launch cities
+
+### FamilySync — Still Needs
+- Push Prisma schema to Neon database (run `./scripts/setup.sh` locally)
+- Deploy to Vercel
+- Configure Stripe test keys
+- EAS Build for TestFlight / Google Play Internal
+- Choose brand name (BundleCal vs KithCal)
