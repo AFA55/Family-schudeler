@@ -2,15 +2,20 @@
  * Discovery Feed API Route
  *
  * Aggregates activities from multiple sources:
- * - Google Places (nearby restaurants, attractions)
- * - Recreation.gov RIDB (parks, trails, campgrounds) [FREE]
- * - YouTube (trending video content) [FREE]
- * - User-submitted social content (TikTok, Instagram links)
+ * - Database activities (by city/state/category)
+ * - Social content (TikTok, YouTube) matched to activities
+ * - Trending section with most-viewed social content
  *
- * Total API cost: ~$275/month for 5 launch cities
+ * Query params: city, state, category, platform, page, limit, lat, lng
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import { prisma, ActivityType, SocialPlatform } from "@familysync/database";
+
+const DEFAULT_PAGE = 1;
+const DEFAULT_LIMIT = 20;
+const MAX_LIMIT = 50;
+const TRENDING_LIMIT = 10;
 
 // GET /api/discover - Get discovery feed for a location
 export async function GET(request: NextRequest) {
@@ -20,6 +25,12 @@ export async function GET(request: NextRequest) {
   const lat = searchParams.get("lat");
   const lng = searchParams.get("lng");
   const category = searchParams.get("category");
+  const platform = searchParams.get("platform");
+  const page = Math.max(1, parseInt(searchParams.get("page") || String(DEFAULT_PAGE), 10));
+  const limit = Math.min(
+    MAX_LIMIT,
+    Math.max(1, parseInt(searchParams.get("limit") || String(DEFAULT_LIMIT), 10))
+  );
 
   if (!city && (!lat || !lng)) {
     return NextResponse.json(
@@ -28,96 +39,153 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  // TODO: Implement aggregation from multiple sources
-  // 1. Check cache first (48hr TTL for YouTube, 7d for Places, 24h for social)
-  // 2. If cache miss, fetch from APIs in parallel:
-  //    - Google Places: nearby search by category
-  //    - RIDB: recreation areas within radius (FREE)
-  //    - YouTube: cached video search results
-  //    - Database: user-submitted social content for this city
-  // 3. Normalize and score results using ranking algorithm
-  // 4. Return ranked feed
+  try {
+    const skip = (page - 1) * limit;
 
-  const mockFeed = {
-    trending: [
-      {
-        id: "t1",
-        type: "social",
-        platform: "YOUTUBE",
-        title: "Top 10 Hidden Gems in Salt Lake City",
-        authorName: "Adventure Family SLC",
-        viewCount: 89000,
-        thumbnail: null,
-        city: city || "Salt Lake City",
+    // --- Build activity query filters ---
+    const activityWhere: Record<string, unknown> = {};
+
+    if (city) {
+      activityWhere.city = { equals: city, mode: "insensitive" };
+    }
+    if (state) {
+      activityWhere.state = { equals: state, mode: "insensitive" };
+    }
+    if (category) {
+      // Validate that the category is a valid ActivityType
+      const upperCategory = category.toUpperCase();
+      if (Object.values(ActivityType).includes(upperCategory as ActivityType)) {
+        activityWhere.category = upperCategory as ActivityType;
+      }
+    }
+
+    // --- Fetch activities from database ---
+    const [activities, totalActivities] = await Promise.all([
+      prisma.activity.findMany({
+        where: activityWhere,
+        include: {
+          socialContent: {
+            take: 3,
+            orderBy: { viewCount: "desc" },
+          },
+        },
+        orderBy: [{ rating: "desc" }, { reviewCount: "desc" }],
+        skip,
+        take: limit,
+      }),
+      prisma.activity.count({ where: activityWhere }),
+    ]);
+
+    // --- Build social content query filters ---
+    const socialWhere: Record<string, unknown> = {};
+
+    if (city) {
+      socialWhere.city = { equals: city, mode: "insensitive" };
+    }
+    if (state) {
+      socialWhere.state = { equals: state, mode: "insensitive" };
+    }
+    if (platform) {
+      const upperPlatform = platform.toUpperCase();
+      if (
+        Object.values(SocialPlatform).includes(upperPlatform as SocialPlatform)
+      ) {
+        socialWhere.platform = upperPlatform as SocialPlatform;
+      }
+    }
+
+    // --- Fetch trending social content ---
+    const trending = await prisma.socialContent.findMany({
+      where: {
+        ...socialWhere,
+        viewCount: { not: null },
       },
-      {
-        id: "t2",
-        type: "social",
-        platform: "TIKTOK",
-        title: "This trail is INSANE and only 20 min away",
-        authorName: "@hikingmom_slc",
-        viewCount: 2300000,
-        thumbnail: null,
-        city: city || "Salt Lake City",
+      orderBy: { viewCount: "desc" },
+      take: TRENDING_LIMIT,
+      include: {
+        activity: {
+          select: {
+            id: true,
+            title: true,
+            category: true,
+          },
+        },
       },
-    ],
-    activities: [
-      {
-        id: "a1",
+    });
+
+    // --- Group activities by category ---
+    const grouped: Record<string, typeof activities> = {};
+    for (const activity of activities) {
+      const cat = activity.category;
+      if (!grouped[cat]) grouped[cat] = [];
+      grouped[cat].push(activity);
+    }
+
+    return NextResponse.json({
+      trending: trending.map((sc) => ({
+        id: sc.id,
+        type: "social",
+        platform: sc.platform,
+        title: sc.title,
+        authorName: sc.authorName,
+        authorHandle: sc.authorHandle,
+        viewCount: sc.viewCount,
+        likeCount: sc.likeCount,
+        thumbnail: sc.thumbnail,
+        url: sc.url,
+        embedHtml: sc.embedHtml,
+        city: sc.city,
+        state: sc.state,
+        activity: sc.activity,
+      })),
+      activities: activities.map((a) => ({
+        id: a.id,
         type: "place",
-        title: "Red Butte Garden",
-        category: "PARK",
-        cost: "BUDGET",
-        rating: 4.7,
-        reviewCount: 1200,
-        distance: "3.2 mi",
-        source: "google_places",
+        title: a.title,
+        description: a.description,
+        category: a.category,
+        cost: a.cost,
+        rating: a.rating,
+        reviewCount: a.reviewCount,
+        city: a.city,
+        state: a.state,
+        imageUrl: a.imageUrl,
+        isAffiliate: a.isAffiliate,
+        affiliateUrl: a.affiliateUrl,
+        tags: a.tags,
+        socialContent: a.socialContent.map((sc) => ({
+          id: sc.id,
+          platform: sc.platform,
+          title: sc.title,
+          thumbnail: sc.thumbnail,
+          viewCount: sc.viewCount,
+          url: sc.url,
+        })),
+      })),
+      groupedByCategory: Object.entries(grouped).map(([cat, items]) => ({
+        category: cat,
+        count: items.length,
+        activities: items.map((a) => ({
+          id: a.id,
+          title: a.title,
+          cost: a.cost,
+          rating: a.rating,
+          imageUrl: a.imageUrl,
+          isAffiliate: a.isAffiliate,
+        })),
+      })),
+      pagination: {
+        page,
+        limit,
+        total: totalActivities,
+        totalPages: Math.ceil(totalActivities / limit),
       },
-      {
-        id: "a2",
-        type: "recreation",
-        title: "Big Cottonwood Canyon Trail",
-        category: "TRAIL",
-        cost: "FREE",
-        rating: 4.9,
-        distance: "12 mi",
-        source: "ridb",
-        tags: ["hiking", "scenic views", "family-friendly"],
-      },
-      {
-        id: "a3",
-        type: "event",
-        title: "Family Art Walk - Downtown",
-        category: "EVENT",
-        cost: "FREE",
-        date: "2026-04-04",
-        source: "eventbrite",
-      },
-    ],
-    message: "Discovery feed ready — connect API keys to activate live data",
-  };
-
-  return NextResponse.json(mockFeed);
-}
-
-// POST /api/discover/submit - Submit a social media link
-export async function POST(request: NextRequest) {
-  const body = await request.json();
-  const { url, city, state } = body;
-
-  if (!url) {
-    return NextResponse.json({ error: "URL is required" }, { status: 400 });
+    });
+  } catch (error) {
+    console.error("Failed to fetch discovery feed:", error);
+    return NextResponse.json(
+      { error: "Failed to fetch discovery feed" },
+      { status: 500 }
+    );
   }
-
-  // TODO: Validate URL is from supported platform (TikTok, YouTube, Instagram)
-  // TODO: Call oEmbed API (TikTok) or YouTube Data API to get metadata
-  // TODO: Use AI to classify: city, activity type, age range
-  // TODO: Store in social_content table
-  // TODO: Link to existing activity or create new one
-
-  return NextResponse.json({
-    success: true,
-    message: "Social content submitted — connect APIs to process",
-    content: { url, city, state },
-  });
 }

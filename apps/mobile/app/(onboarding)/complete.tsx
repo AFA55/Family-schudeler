@@ -1,22 +1,67 @@
-import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
+import { useEffect, useState } from "react";
+import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from "react-native";
 import { useRouter } from "expo-router";
 import { colors } from "../../src/theme/colors";
+import { useOnboardingStore } from "../../src/store/onboardingStore";
+import { useAuthStore } from "../../src/store/authStore";
+import { onboardingAPI } from "../../src/lib/api";
 
 export default function CompleteScreen() {
   const router = useRouter();
+  const { getSubmitData, reset } = useOnboardingStore();
+  const { user, setOnboarded } = useAuthStore();
+  const [isSubmitting, setIsSubmitting] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const submitOnboarding = async () => {
+      try {
+        const data = getSubmitData();
+        await onboardingAPI.submit({
+          userId: user?.id ?? "",
+          interests: data.interests,
+          goals: data.goals,
+          activityTypes: data.activityTypes,
+          currentActivities: [],
+          preferredBudget: data.preferredBudget ?? undefined,
+          wantRecommendations: data.wantRecommendations,
+          address: data.address || undefined,
+          maxTravelDistance: data.maxTravelDistance,
+          helpCountryPreference: data.helpCountryPreference,
+        });
+        setOnboarded(true);
+        reset();
+      } catch (err) {
+        console.error("Failed to submit onboarding:", err);
+        setError("Something went wrong. You can still continue.");
+      } finally {
+        setIsSubmitting(false);
+      }
+    };
+
+    submitOnboarding();
+  }, []);
 
   return (
     <View style={styles.container}>
       <View style={styles.content}>
         <View style={styles.celebration}>
-          <Text style={styles.emoji}>🎉</Text>
+          {isSubmitting ? (
+            <ActivityIndicator size="large" color={colors.amber[500]} />
+          ) : (
+            <Text style={styles.emoji}>🎉</Text>
+          )}
         </View>
 
-        <Text style={styles.title}>You&apos;re all set!</Text>
-        <Text style={styles.subtitle}>
-          FamilySync is ready to help your family plan amazing time together.
-          We&apos;re already finding activities perfect for you.
+        <Text style={styles.title}>
+          {isSubmitting ? "Setting things up..." : "You're all set!"}
         </Text>
+        <Text style={styles.subtitle}>
+          {isSubmitting
+            ? "We're saving your preferences and personalizing your experience."
+            : "FamilySync is ready to help your family plan amazing time together. We're already finding activities perfect for you."}
+        </Text>
+        {error && <Text style={styles.errorText}>{error}</Text>}
 
         <View style={styles.highlights}>
           <View style={styles.highlight}>
@@ -40,11 +85,12 @@ export default function CompleteScreen() {
         </View>
 
         <TouchableOpacity
-          style={styles.startButton}
+          style={[styles.startButton, isSubmitting && styles.startButtonDisabled]}
+          disabled={isSubmitting}
           onPress={() => router.replace("/(tabs)/calendar")}
         >
           <Text style={styles.startButtonText}>
-            Start Planning Family Time
+            {isSubmitting ? "Please wait..." : "Start Planning Family Time"}
           </Text>
         </TouchableOpacity>
       </View>
@@ -125,9 +171,18 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 4,
   },
+  startButtonDisabled: {
+    opacity: 0.5,
+  },
   startButtonText: {
     color: "white",
     fontSize: 16,
     fontWeight: "700",
+  },
+  errorText: {
+    fontSize: 13,
+    color: colors.coral[500],
+    textAlign: "center",
+    marginBottom: 16,
   },
 });

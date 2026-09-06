@@ -7,25 +7,26 @@ import {
   StyleSheet,
   KeyboardAvoidingView,
   Platform,
+  Alert,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { colors } from "../../src/theme/colors";
+import { useAuthStore } from "../../src/store/authStore";
 
 export default function SignInScreen() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [loading, setLoading] = useState(false);
+  const { signIn, isLoading: loading } = useAuthStore();
 
   const handleSignIn = async () => {
-    setLoading(true);
     try {
-      // TODO: Connect to API
+      await signIn({ email, password });
       router.replace("/(tabs)/calendar");
-    } catch {
-      // Handle error
-    } finally {
-      setLoading(false);
+    } catch (error: unknown) {
+      const message =
+        error instanceof Error ? error.message : "Sign in failed. Please try again.";
+      Alert.alert("Sign In Failed", message);
     }
   };
 

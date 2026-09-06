@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
   View,
   Text,
@@ -8,6 +8,10 @@ import {
   StyleSheet,
 } from "react-native";
 import { colors } from "../../src/theme/colors";
+import { useDiscoverStore } from "../../src/store/discoverStore";
+import { LoadingSkeleton } from "../../src/components/LoadingSkeleton";
+import { RetryView } from "../../src/components/RetryView";
+import { EmptyState } from "../../src/components/EmptyState";
 
 const categories = [
   { id: "all", label: "All", emoji: "✨" },
@@ -20,101 +24,73 @@ const categories = [
   { id: "free", label: "Free", emoji: "🆓" },
 ];
 
-// Trending activities sourced from social media (TikTok, Instagram, YouTube)
-const trendingActivities = [
-  {
-    id: "t1",
-    title: "Hidden Waterfall Hike",
-    source: "TikTok",
-    creator: "@adventuremom_atl",
-    views: "2.3M views",
-    description: "This hidden waterfall trail is only 20 min from downtown! Perfect for families.",
-    thumbnail: null,
-    category: "outdoor",
-    location: "Cascade Springs, Atlanta",
-  },
-  {
-    id: "t2",
-    title: "Secret Speakeasy Pizza",
-    source: "TikTok",
-    creator: "@foodie_family",
-    views: "890K views",
-    description: "This pizza place has a hidden entrance through a bookshelf! Kids LOVED it.",
-    thumbnail: null,
-    category: "dining",
-    location: "Little Italy, NYC",
-  },
-  {
-    id: "t3",
-    title: "Free Art Walk Downtown",
-    source: "Instagram",
-    creator: "@momlife_austin",
-    views: "156K likes",
-    description: "Every first Friday they do a free art walk with live music and food trucks.",
-    thumbnail: null,
-    category: "free",
-    location: "South Congress, Austin",
-  },
-];
+const CATEGORY_EMOJI: Record<string, string> = {
+  outdoor: "🥾",
+  dining: "🍝",
+  games: "🎲",
+  adventure: "🥾",
+  crafts: "🏺",
+  sports: "⚽",
+  free: "🆓",
+};
 
-const recommendations = [
-  {
-    id: "1",
-    title: "Sunset Trail Hike",
-    description: "Beautiful 3-mile trail with scenic overlooks. Great for families with kids 5+.",
-    category: "outdoor",
-    cost: "Free",
-    distance: "4.2 mi",
-    rating: 4.8,
-    reviews: 234,
-    emoji: "🥾",
-    color: colors.success[500],
-  },
-  {
-    id: "2",
-    title: "Tony's Italian Kitchen",
-    description: "Family-friendly Italian restaurant with spacious seating and kids menu.",
-    category: "dining",
-    cost: "$$",
-    distance: "1.8 mi",
-    rating: 4.6,
-    reviews: 412,
-    emoji: "🍝",
-    color: colors.amber[500],
-  },
-  {
-    id: "3",
-    title: "Board Game Cafe",
-    description: "Over 500 board games to play. Great for rainy days. Snacks and drinks available.",
-    category: "games",
-    cost: "$",
-    distance: "3.1 mi",
-    rating: 4.7,
-    reviews: 189,
-    emoji: "🎲",
-    color: colors.primary[500],
-  },
-  {
-    id: "4",
-    title: "DIY Pottery Workshop",
-    description: "Create your own pottery. Fun for all ages. All materials included.",
-    category: "crafts",
-    cost: "$$",
-    distance: "5.5 mi",
-    rating: 4.9,
-    reviews: 87,
-    emoji: "🏺",
-    color: colors.coral[500],
-  },
-];
+const CATEGORY_COLOR: Record<string, string> = {
+  outdoor: colors.success[500],
+  dining: colors.amber[500],
+  games: colors.primary[500],
+  adventure: colors.success[500],
+  crafts: colors.coral[500],
+  sports: colors.primary[500],
+  free: colors.success[500],
+};
 
 export default function DiscoverScreen() {
   const [activeCategory, setActiveCategory] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
+  const { trending, activities, isLoading, fetchFeed } = useDiscoverStore();
+  const [error, setError] = useState<string | null>(null);
 
-  const filtered = activeCategory === "all"
-    ? recommendations
-    : recommendations.filter((r) => r.category === activeCategory);
+  useEffect(() => {
+    const load = async () => {
+      setError(null);
+      try {
+        await fetchFeed({});
+      } catch {
+        setError("Failed to load recommendations.");
+      }
+    };
+    load();
+  }, []);
+
+  const handleCategoryChange = (catId: string) => {
+    setActiveCategory(catId);
+    const params = catId === "all" || catId === "trending" ? {} : { category: catId };
+    setError(null);
+    fetchFeed(params).catch(() => setError("Failed to load recommendations."));
+  };
+
+  // Map store activities to the display format used by the UI
+  const recommendations = useMemo(
+    () =>
+      activities.map((a) => ({
+        id: a.id,
+        title: a.title,
+        description: a.description,
+        category: a.category?.toLowerCase() ?? "general",
+        cost: a.cost ?? "Free",
+        distance: "",
+        rating: a.rating ?? 0,
+        reviews: a.reviewCount ?? 0,
+        emoji: CATEGORY_EMOJI[a.category?.toLowerCase()] ?? "📌",
+        color: CATEGORY_COLOR[a.category?.toLowerCase()] ?? colors.neutral[500],
+      })),
+    [activities]
+  );
+
+  const filtered =
+    activeCategory === "all" || activeCategory === "trending"
+      ? recommendations
+      : recommendations.filter((r) => r.category === activeCategory);
 
   return (
     <View style={styles.container}>
@@ -151,7 +127,7 @@ export default function DiscoverScreen() {
               styles.categoryChip,
               activeCategory === cat.id && styles.categoryChipActive,
             ]}
-            onPress={() => setActiveCategory(cat.id)}
+            onPress={() => handleCategoryChange(cat.id)}
           >
             <Text style={styles.categoryEmoji}>{cat.emoji}</Text>
             <Text
@@ -182,8 +158,27 @@ export default function DiscoverScreen() {
 
       {/* Recommendations */}
       <ScrollView showsVerticalScrollIndicator={false} style={styles.listScroll}>
+        {/* Loading state */}
+        {isLoading && (
+          <LoadingSkeleton variant="card" count={3} />
+        )}
+
+        {/* Error state */}
+        {error && !isLoading && (
+          <RetryView
+            message={error}
+            onRetry={() => {
+              setError(null);
+              fetchFeed({}).catch(() =>
+                setError("Failed to load recommendations.")
+              );
+            }}
+          />
+        )}
+
         {/* Trending from Social Media */}
-        {(activeCategory === "all" || activeCategory === "trending") && (
+        {(activeCategory === "all" || activeCategory === "trending") &&
+          trending.length > 0 && (
           <View style={styles.trendingSection}>
             <View style={styles.trendingHeader}>
               <Text style={styles.trendingSectionTitle}>Trending Near You</Text>
@@ -191,21 +186,20 @@ export default function DiscoverScreen() {
             </View>
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
               <View style={styles.trendingRow}>
-                {trendingActivities.map((item) => (
+                {trending.map((item) => (
                   <TouchableOpacity key={item.id} style={styles.trendingCard}>
                     <View style={styles.trendingImagePlaceholder}>
                       <Text style={styles.trendingPlayIcon}>▶</Text>
                     </View>
                     <View style={styles.trendingSourceTag}>
                       <Text style={styles.trendingSourceText}>
-                        {item.source === "TikTok" ? "🎵 TikTok" : "📸 Instagram"}
+                        {item.source === "TikTok" ? "🎵 TikTok" : "📸 " + item.source}
                       </Text>
                     </View>
                     <Text style={styles.trendingTitle} numberOfLines={1}>{item.title}</Text>
-                    <Text style={styles.trendingCreator}>{item.creator}</Text>
-                    <Text style={styles.trendingViews}>{item.views}</Text>
+                    <Text style={styles.trendingDescription} numberOfLines={2}>{item.description}</Text>
                     <Text style={styles.trendingLocation} numberOfLines={1}>
-                      📍 {item.location}
+                      📍 {item.city}{item.state ? `, ${item.state}` : ""}
                     </Text>
                     <TouchableOpacity style={styles.trendingScheduleBtn}>
                       <Text style={styles.trendingScheduleText}>+ Schedule</Text>
@@ -219,6 +213,13 @@ export default function DiscoverScreen() {
 
         {/* Curated Recommendations */}
         <Text style={styles.curatedTitle}>Recommended For You</Text>
+        {!isLoading && !error && filtered.length === 0 && (
+          <EmptyState
+            icon="🔍"
+            title="No activities found"
+            message="Try a different category or search term to discover new experiences."
+          />
+        )}
         {filtered.map((item) => (
           <TouchableOpacity key={item.id} style={styles.recCard}>
             <View style={[styles.recEmoji, { backgroundColor: `${item.color}15` }]}>
@@ -513,18 +514,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingTop: 10,
   },
-  trendingCreator: {
+  trendingDescription: {
     fontSize: 11,
-    fontWeight: "600",
-    color: colors.primary[500],
+    color: colors.neutral[500],
     paddingHorizontal: 10,
     marginTop: 2,
-  },
-  trendingViews: {
-    fontSize: 11,
-    color: colors.neutral[400],
-    paddingHorizontal: 10,
-    marginTop: 1,
+    lineHeight: 15,
   },
   trendingLocation: {
     fontSize: 11,
@@ -550,5 +545,37 @@ const styles = StyleSheet.create({
     color: colors.neutral[800],
     marginBottom: 12,
     marginTop: 4,
+  },
+  loadingRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 16,
+    gap: 8,
+  },
+  loadingText: {
+    fontSize: 13,
+    color: colors.neutral[400],
+  },
+  errorContainer: {
+    alignItems: "center",
+    paddingVertical: 24,
+  },
+  errorText: {
+    fontSize: 14,
+    color: colors.coral[500],
+    textAlign: "center",
+    marginBottom: 10,
+  },
+  retryButton: {
+    backgroundColor: colors.primary[50],
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 12,
+  },
+  retryText: {
+    color: colors.primary[600],
+    fontWeight: "600",
+    fontSize: 14,
   },
 });

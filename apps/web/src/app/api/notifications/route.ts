@@ -82,7 +82,7 @@ export async function POST(request: NextRequest) {
         type,
         title,
         body: notificationBody,
-        data: data ?? undefined,
+        data: (data ?? undefined) as any,
       },
     });
 

@@ -175,3 +175,36 @@ export const HELP_COUNTRY_OPTIONS = [
   { value: "LATIN_AMERICA", label: "Families in Latin America" },
   { value: "MIDDLE_EAST", label: "Families in the Middle East" },
 ] as const;
+
+// ============================================
+// Affiliate Networks
+// ============================================
+
+export const AFFILIATE_NETWORKS = {
+  AMAZON: {
+    name: "Amazon Associates",
+    tag: "familysync-20",
+    domains: ["amazon.com", "amzn.to"],
+  },
+  VIATOR: {
+    name: "Viator",
+    domains: ["viator.com"],
+  },
+  GETYOURGUIDE: {
+    name: "GetYourGuide",
+    domains: ["getyourguide.com"],
+  },
+} as const;
+
+// Social platforms supported for content submission
+export const SUPPORTED_SOCIAL_PLATFORMS = ["TIKTOK", "YOUTUBE", "INSTAGRAM"] as const;
+
+// Discovery feed defaults
+export const DISCOVER_DEFAULTS = {
+  PAGE_SIZE: 20,
+  MAX_PAGE_SIZE: 50,
+  TRENDING_LIMIT: 10,
+  CACHE_TTL_YOUTUBE_HOURS: 48,
+  CACHE_TTL_PLACES_DAYS: 7,
+  CACHE_TTL_SOCIAL_HOURS: 24,
+} as const;

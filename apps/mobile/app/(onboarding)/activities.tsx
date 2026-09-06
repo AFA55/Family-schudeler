@@ -2,6 +2,7 @@ import { useState } from "react";
 import { View, Text, TouchableOpacity, ScrollView, StyleSheet } from "react-native";
 import { useRouter } from "expo-router";
 import { colors } from "../../src/theme/colors";
+import { useOnboardingStore } from "../../src/store/onboardingStore";
 
 const activityTypes = [
   { id: "at-home", label: "At-home activities", emoji: "🏠", description: "Board games, movie nights, crafts" },
@@ -23,9 +24,15 @@ const budgets = [
 
 export default function ActivitiesScreen() {
   const router = useRouter();
-  const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
-  const [selectedBudget, setSelectedBudget] = useState<string | null>(null);
-  const [wantRecs, setWantRecs] = useState(true);
+  const {
+    activityTypes: savedTypes,
+    preferredBudget: savedBudget,
+    wantRecommendations: savedWantRecs,
+    setActivities,
+  } = useOnboardingStore();
+  const [selectedTypes, setSelectedTypes] = useState<string[]>(savedTypes);
+  const [selectedBudget, setSelectedBudget] = useState<string | null>(savedBudget);
+  const [wantRecs, setWantRecs] = useState(savedWantRecs);
 
   const toggleType = (id: string) => {
     setSelectedTypes((prev) =>
@@ -106,7 +113,14 @@ export default function ActivitiesScreen() {
       <View style={styles.footer}>
         <TouchableOpacity
           style={styles.nextButton}
-          onPress={() => router.push("/(onboarding)/location")}
+          onPress={() => {
+            setActivities({
+              activityTypes: selectedTypes,
+              preferredBudget: selectedBudget,
+              wantRecommendations: wantRecs,
+            });
+            router.push("/(onboarding)/location");
+          }}
         >
           <Text style={styles.nextText}>Continue</Text>
         </TouchableOpacity>

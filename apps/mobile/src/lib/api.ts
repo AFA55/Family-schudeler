@@ -1,11 +1,19 @@
-import axios from "axios";
+import axios, { AxiosError, InternalAxiosRequestConfig } from "axios";
 import { useAuthStore } from "../store/authStore";
 
 const API_BASE_URL =
   process.env.EXPO_PUBLIC_API_URL || "http://localhost:3000/api";
 
+const MAX_RETRIES = 3;
+const INITIAL_BACKOFF_MS = 1000;
+
+interface RetryConfig extends InternalAxiosRequestConfig {
+  _retryCount?: number;
+}
+
 export const api = axios.create({
   baseURL: API_BASE_URL,
+  timeout: 15000,
   headers: {
     "Content-Type": "application/json",
   },
@@ -18,6 +26,37 @@ api.interceptors.request.use((config) => {
     config.headers.Authorization = `Bearer ${token}`;
   }
   return config;
+});
+
+// Retry interceptor - retries network errors and 5xx responses with exponential backoff
+api.interceptors.response.use(undefined, async (error: AxiosError) => {
+  const config = error.config as RetryConfig | undefined;
+  if (!config) {
+    return Promise.reject(error);
+  }
+
+  const retryCount = config._retryCount ?? 0;
+
+  const isNetworkError = !error.response;
+  const isServerError = error.response != null && error.response.status >= 500;
+  const shouldRetry =
+    retryCount < MAX_RETRIES && (isNetworkError || isServerError);
+
+  if (!shouldRetry) {
+    return Promise.reject(error);
+  }
+
+  config._retryCount = retryCount + 1;
+  const backoffMs = INITIAL_BACKOFF_MS * Math.pow(2, retryCount);
+
+  if (__DEV__) {
+    console.log(
+      `[api] Retry ${config._retryCount}/${MAX_RETRIES} after ${backoffMs}ms — ${config.url}`
+    );
+  }
+
+  await new Promise((resolve) => setTimeout(resolve, backoffMs));
+  return api.request(config);
 });
 
 // ---- Auth ----
@@ -48,6 +87,7 @@ export const eventAPI = {
     api.get(
       `/events?familyId=${familyId}&start=${startDate}&end=${endDate}`
     ),
+  get: (eventId: string) => api.get(`/events/${eventId}`),
   create: (data: {
     familyId: string;
     creatorId: string;
@@ -111,4 +151,26 @@ export const subscriptionAPI = {
     api.get(`/stripe/subscription?userId=${userId}`),
   checkout: (data: { userId: string; plan: string; interval: string }) =>
     api.post("/stripe/checkout", data),
+};
+
+// ---- Chat ----
+export const chatAPI = {
+  getRooms: (userId: string) =>
+    api.get(`/chat/rooms?userId=${userId}`),
+  createRoom: (familyId: string, userId: string, name?: string) =>
+    api.post("/chat/rooms", { familyId, userId, name }),
+  getMessages: (roomId: string, userId: string, cursor?: string) => {
+    const params = new URLSearchParams({ userId });
+    if (cursor) params.set("cursor", cursor);
+    return api.get(`/chat/rooms/${roomId}/messages?${params.toString()}`);
+  },
+  sendMessage: (roomId: string, userId: string, content: string) =>
+    api.post(`/chat/rooms/${roomId}/messages`, { content, userId }),
+  askAI: (
+    message: string,
+    familyId: string,
+    userId: string,
+    roomId?: string
+  ) =>
+    api.post("/chat/ai", { message, familyId, userId, roomId }),
 };
